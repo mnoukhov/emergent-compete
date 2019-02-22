@@ -1,0 +1,7 @@
+# Game
+ISR.num_rounds = 5
+ISR.obs_range = 100
+ISR.bias_range = 10
+
+# Training
+train.episodes = 1

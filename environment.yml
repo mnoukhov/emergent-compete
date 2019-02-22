@@ -1,0 +1,9 @@
+name: selfish
+channels:
+    - pytorch
+dependencies:
+    - python=3.7
+    - pytorch-cpu=1.0
+    - pip:
+        - gym=0.11
+        - gin-config=0.1
