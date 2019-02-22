@@ -15,13 +15,12 @@ class Human(Policy):
         # 0 = sender, 1 = receiver
         self.mode = mode
 
-    def __call__(self, obs):
-        if mode == 0:
-            prompt = 'target {}, bias {}'.format(*obs)
-        else:
-            prompt = 'message {}'.format(obs)
+    def __call__(self, *obs):
+        if self.mode == 0:
+            prompt = 'target {}: '.format(*obs)
+        elif self.mode == 1:
+            prompt = 'message {}: '.format(*obs)
 
         action = input(prompt)
 
-        return action
-
+        return int(action)

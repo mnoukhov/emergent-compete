@@ -15,41 +15,51 @@ from gym.spaces import Discrete, Tuple
 
 @gin.configurable
 class ISR(gym.Env):
-    NAME = 'ISR'
-
     def __init__(self,
-                 num_rounds=5,
-                 obs_range=100,
-                 bias_range=20):
-        self.round = None
-        self.targets = None
-        self.bias = None
-        self.last_actions = None
+                 num_rounds,
+                 obs_range,
+                 bias_range):
+        self.num_rounds = num_rounds
         self.action_space = Discrete(obs_range)
-        self.observation_space = Tuple(Discrete(obs_range),
-                                       Discrete(bias_range))
+        self.bias_space = Discrete(bias_range)
+        self.observation_space = Discrete(obs_range)
 
     def reset(self):
         self.round = 0
-        self.round_info = [targets[0], None, None]
-        self.target = self.observation_space[1].sample()
-        self.bias = self.observation_space[0][1].sample()
+        self.target = self.observation_space.sample()
+        self.bias = self.bias_space.sample()
 
-        return (self.target, self.bias)
+        obs = self.target + self.bias
+        return obs
 
     def step(self, action):
-        rewards = [(action - self.target)**2,
-                   (action - self.target - self.bias)**2]
+        rewards = [-abs(action - self.target - self.bias),
+                   -abs(action - self.target)]
+        # rewards = [-(action - self.target)**2,
+                   # -(action - self.target - self.bias)**2]
         done = (self.round >= self.num_rounds)
 
+        self.round_info = [self.round,
+                           self.target + self.bias,
+                           self.target,
+                           action]
+
         self.round += 1
-        self.target = self.observation_space[1].sample()
-        self.bias = self.observation_space[0][1].sample()
-        self.guess = action
-        obs = (self.target, self.bias)
+        self.target = self.observation_space.sample()
+        self.bias = self.bias_space.sample()
+        obs = self.target + self.bias
 
         return obs, rewards, done
 
-    def render(self, message=None, mode='human', close=False):
-        print('target {} message {} guess {}'.format(self.target, message, self.guess))
+    def render(self,
+               message=None,
+               rewards=None):
+        print('--- round {} ---'.format(self.round_info[0]))
+        print('targetS {:>2}  targetR {:>2}'.format(self.round_info[1],
+                                                    self.round_info[2]))
+        if message:
+            print('message {:>2}    guess {:>2}'.format(message,
+                                                        self.round_info[3]))
+        if rewards:
+            print('rewards{:>3}         {:>3}'.format(*rewards))
 

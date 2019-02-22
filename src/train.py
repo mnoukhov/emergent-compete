@@ -1,20 +1,24 @@
 import gin
 import torch
 
-from .game import ISR
-from .agents import Human
+from src.game import ISR
+from src.agents import Human
 
 @gin.configurable
 def train(agents, env, episodes):
     sender = agents[0]
     recver = agents[1]
 
-    target, bias = env.reset()
+    obs = env.reset()
     for _ in range(episodes):
-        message = sender(target, bias)
-        guess = recver(message)
-        target, bias = env.step(guess)
-        env.render(message=message)
+        done = False
+        while not done:
+            message = sender(obs)
+            guess = recver(message)
+            obs, rewards, done = env.step(guess)
+
+            env.render(message=message,
+                       rewards=rewards)
 
     print('Game Over')
 
