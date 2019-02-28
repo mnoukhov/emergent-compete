@@ -2,7 +2,7 @@ import gin
 import torch
 
 from src.game import ISR
-from src.agents import Human
+from src.agents import Human, QNet
 
 @gin.configurable
 def train(agents, env, episodes):
@@ -24,4 +24,4 @@ def train(agents, env, episodes):
 
 if __name__ == '__main__':
     gin.parse_config_file('configs/default.gin')
-    train([Human(0), Human(1)], ISR())
+    train([QNet(), Human(1)], ISR())
