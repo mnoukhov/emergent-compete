@@ -7,7 +7,13 @@ ISR.bias_range = 10
 ISR.batch_size = 1
 
 # Agents
-QNet.action_range = 100
+NaiveQNet.n = 100
+NaiveQNet.gamma = 0.96
+NaiveQNet.alpha = 1e-2
+NaiveQNet.decay = 1e-4
+NaiveQNet.epsilon = 0.05
+
+
 
 # Training
 train.episodes = 1

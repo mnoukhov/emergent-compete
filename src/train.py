@@ -2,20 +2,36 @@ import gin
 import torch
 
 from src.game import ISR
-from src.agents import Human, QNet
+from src.agents import Human, NaiveQNet
 
 @gin.configurable
 def train(agents, env, episodes):
     sender = agents[0]
     recver = agents[1]
 
-    obs = env.reset()
+    next_target = env.reset()
+    next_action = [0,0]
     for _ in range(episodes):
         done = False
         while not done:
-            message = sender(obs)
-            guess = recver(message)
-            obs, rewards, done = env.step(guess)
+            prev_target = next_target
+            prev_action = next_action
+
+            message = sender.step([prev_target[0]] + prev_action)
+            guess = recver.step([message] + prev_action)
+            next_target, rewards, done = env.step(guess)
+            next_action = [message, guess]
+
+            sender.update(env.round - 1,
+                          [prev_target[0]] + prev_action,
+                          message,
+                          [next_target[0]] + next_action,
+                          rewards[0])
+            recver.update(env.round - 1,
+                          [prev_target[1]] + prev_action,
+                          guess,
+                          [next_target[1]] + next_action,
+                          rewards[0])
 
             env.render(message=message,
                        rewards=rewards)
@@ -24,4 +40,4 @@ def train(agents, env, episodes):
 
 if __name__ == '__main__':
     gin.parse_config_file('configs/default.gin')
-    train([QNet(), Human(1)], ISR())
+    train([NaiveQNet(), NaiveQNet()], ISR())
