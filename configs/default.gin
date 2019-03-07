@@ -1,19 +1,33 @@
-#
+# Shared
+n = 100
+
+# Main
+train.sender = @RuleBasedSender()
+train.recver = @OneShotQNet()
+train.env = @IteratedSenderRecver()
+train.episodes = 20000
 
 # Game
-ISR.num_rounds = 5
-ISR.obs_range = 100
-ISR.bias_range = 10
-ISR.batch_size = 1
+IteratedSenderRecver.num_rounds = 5
+IteratedSenderRecver.max_obs = %n
+IteratedSenderRecver.max_bias = 5
+IteratedSenderRecver.batch_size = 1
 
 # Agents
-NaiveQNet.n = 100
-NaiveQNet.gamma = 0.96
-NaiveQNet.alpha = 1e-2
-NaiveQNet.decay = 1e-4
-NaiveQNet.epsilon = 0.05
+#NaiveQNet.n = %n
+#NaiveQNet.gamma = 0.96
+#NaiveQNet.alpha = 1e-2
+#NaiveQNet.decay = 1e-4
+#NaiveQNet.epsilon = 0.05
 
+OneShotQNet.n = %n
+OneShotQNet.gamma = 0.96
+OneShotQNet.alpha = 1e-2
+OneShotQNet.decay = 1e-4
+OneShotQNet.epsilon = 0.05
 
+RuleBasedSender.n = %n
+RuleBasedSender.bias = 0
 
-# Training
-train.episodes = 1
+#sender/Human.mode = 0
+#recver/Human.mode = 1

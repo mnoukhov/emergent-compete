@@ -16,21 +16,21 @@ import torch
 
 
 @gin.configurable
-class ISR(gym.Env):
+class IteratedSenderRecver(gym.Env):
     def __init__(self,
                  num_rounds,
-                 obs_range,
-                 bias_range,
+                 max_obs,
+                 max_bias,
                  batch_size):
         self.num_rounds = num_rounds
-        self.action_space = Discrete(obs_range)
-        self.bias_space = Discrete(bias_range)
-        self.observation_space = Discrete(obs_range)
+        self.action_space = Discrete(max_obs)
+        self.bias_space = Discrete(max_bias)
+        self.observation_space = Discrete(max_obs)
         # self.batch_size = batch_size
 
     def _generate(self):
-        target = torch.randint(self.observation_space.n, size=())
         bias = torch.randint(self.bias_space.n, size=())
+        target = torch.randint(self.observation_space.n - bias, size=())
 
         return target, bias
 
@@ -70,4 +70,3 @@ class ISR(gym.Env):
             print('rewards{:>3}         {:>3}'.format(rewards[0].item(),
                                                       rewards[1].item()))
         print("")
-
