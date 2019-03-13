@@ -34,10 +34,8 @@ DeterministicGradient.n = %n
 DeterministicGradient.lr = 1e-3
 DeterministicGradient.gamma = 1.0
 
-
-
 RuleBasedSender.n = %n
-RuleBasedSender.bias = 0
+RuleBasedSender.bias = 10
 
 #sender/Human.mode = 0
 #recver/Human.mode = 1

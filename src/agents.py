@@ -53,13 +53,13 @@ class Human(Policy):
 class RuleBasedSender(Policy):
     def __init__(self, n, bias):
         super().__init__()
-        self.bias_dist = Uniform(0, bias)
+        self.bias = Uniform(0, bias)
         self.n = n
 
     def action(self, state):
         target, _, _ = state
-        message = target + self.bias_dist.sample()
-        return torch.clamp(message, 0, self.n - 1)
+        message = target + self.bias.sample()
+        return torch.clamp(message, 1, self.n)
 
     def update(self, *args):
         pass
@@ -143,7 +143,7 @@ class DeterministicGradient(Policy):
 
     def action(self, state):
         input_ = state[0].reshape(1,1)
-        action = self.policy(input_) * self.n
+        action = 1 + self.policy(input_) * (self.n - 1)
 
         return action
 

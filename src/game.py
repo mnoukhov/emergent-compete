@@ -26,11 +26,10 @@ class IteratedSenderRecver(gym.Env):
         self.action_space = Discrete(max_obs)
         self.bias_space = Discrete(max_bias)
         self.observation_space = Discrete(max_obs)
-        # self.batch_size = batch_size
 
     def _generate(self):
         bias = torch.randint(self.bias_space.n, size=())
-        target = torch.randint(self.observation_space.n - bias, size=())
+        target = torch.randint(1, self.observation_space.n - bias, size=())
 
         return target.float(), bias.float()
 
@@ -43,10 +42,10 @@ class IteratedSenderRecver(gym.Env):
     def step(self, action):
         self.round += 1
 
-        rewards = [-torch.abs(action - self.target - self.bias),
-                   -torch.abs(action - self.target)]
-        # rewards = [-(action - self.target)**2,
-                   # -(action - self.target - self.bias)**2]
+        # rewards = [-torch.abs(action - self.target - self.bias),
+                   # -torch.abs(action - self.target)]
+        rewards = [-(action - self.target)**2,
+                   -(action - self.target - self.bias)**2]
         done = (self.round >= self.num_rounds)
 
         self.round_info = [self.round,

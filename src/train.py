@@ -16,7 +16,7 @@ def train(sender, recver, env, episodes, render=1000):
         target = env.reset()
         sender.reset()
         recver.reset()
-        prev_action = [torch.tensor(-1.), torch.tensor(-1.)]
+        prev_action = [torch.tensor(0.), torch.tensor(0.)]
         while not done:
             message = sender.action([target] + prev_action)
             guess = recver.action([message] + prev_action)
