@@ -4,12 +4,21 @@ import random
 import gin
 import torch
 import torch.nn as nn
+from torch.optim import Adam, SGD
 from torch.distributions.uniform import Uniform
+from torch.distributions.normal import Normal
 
 
 class Policy(object):
+    def __init__(self):
+        self.rewards = []
+        self.logs = []
+
+    def reset(self):
+        self.rewards = []
+
     @abstractmethod
-    def step(self, state):
+    def action(self, state):
         pass
 
     @abstractmethod
@@ -20,10 +29,11 @@ class Policy(object):
 @gin.configurable
 class Human(Policy):
     def __init__(self, mode):
+        super().__init__()
         # 0 = sender, 1 = receiver
         self.mode = mode
 
-    def step(self, state):
+    def action(self, state):
         obs, _, _ = state
 
         if self.mode == 0:
@@ -42,12 +52,13 @@ class Human(Policy):
 @gin.configurable
 class RuleBasedSender(Policy):
     def __init__(self, n, bias):
+        super().__init__()
         self.bias_dist = Uniform(0, bias)
         self.n = n
 
-    def step(self, state):
+    def action(self, state):
         target, _, _ = state
-        message = target + self.bias_dist.sample().int()
+        message = target + self.bias_dist.sample()
         return torch.clamp(message, 0, self.n - 1)
 
     def update(self, *args):
@@ -71,9 +82,9 @@ class NaiveQNet(Policy):
 
     @property
     def states(self):
-        return self.n**3
+        return self.n**3 + 1
 
-    def step(self, state):
+    def action(self, state):
         state_idx = self._to_idx(state)
         logits = self.Q[state_idx]
         return self._epsilon_greedy(logits)
@@ -92,58 +103,130 @@ class NaiveQNet(Policy):
         alpha = self.alpha
         prev_state_idx = self._to_idx(prev_state)
 
-        self.Q[prev_state_idx, action] = reward
-
-        # self.Q[prev_state_idx, action] = ( (1 - alpha) * self.Q[prev_state_idx, action]
-                                          # + alpha * (reward + self.gamma * V))
+        self.Q[prev_state_idx, action] = ( (1 - alpha) * self.Q[prev_state_idx, action]
+                                          + alpha * (reward + self.gamma * V))
 
     def _to_idx(self, state):
-        return self.n**2 * state[0] + self.n*state[1] + state[2]
+        if any(s == -1 for s in state):
+            return 0
+        else:
+            return self.n**2 * state[0] + self.n*state[1] + state[2] + 1
 
 
 @gin.configurable
 class OneShotQNet(NaiveQNet):
     @property
     def states(self):
-        return self.n
+        return self.n + 1
 
     def _to_idx(self, state):
-        return state[0]
+        if any(s == -1 for s in state):
+            return 0
+        else:
+            return state[0] + 1
 
 
 @gin.configurable
-class A2C(Policy):
-    def __init__(self, n, gamma, alpha, decay, epsilon):
+class DeterministicGradient(Policy):
+    def __init__(self, n, lr, gamma):
+        super().__init__()
         self.n = n
         self.gamma = gamma
-        self.alpha = alpha
-        self.decay = decay
-        self.epsilon = epsilon
-        self.V = torch.nn.Linear(3,1)
+        self.policy = nn.Sequential(
+            nn.Linear(1,1),
+            nn.Sigmoid()
+        )
+        self.optimizer = Adam(self.policy.parameters(), lr=lr)
 
-    def step(self, state)
-        input_ = torch.stack(state, dim=0)
-        logits
-        logits = self.Q[state_idx]
-        return self._epsilon_greedy(logits)
+    def reset(self):
+        del self.rewards[:]
 
-    def _epsilon_greedy(self, logits):
-        if random.random() <= self.epsilon:
-            return torch.randint(self.states - 1, size=())
-        else:
-            return torch.argmax(logits)
+    def action(self, state):
+        input_ = state[0].reshape(1,1)
+        action = self.policy(input_) * self.n
 
-    def _to_idx(self, state):
-        return self.n**2 * state[0] + self.n*state[1] + state[2]
+        return action
+
+    def update(self):
+        loss = -torch.sum(torch.stack(self.rewards))
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, n, gamma, alpha, decay, epsilon):
-        pass
+    def __init__(self, n, lr, gamma):
+        super().__init__()
+        self.n = n
+        self.gamma = gamma
+        self.policy = nn.Sequential(
+            nn.Linear(1,1),
+            nn.Sigmoid()
+        )
+        self.optimizer = Adam(self.policy.parameters(), lr=lr)
+        # self.optimizer = SGD(self.policy.parameters(), lr=lr)
+        self.log_probs = []
 
-    def step(self, state):
-        pass
+    def reset(self):
+        del self.rewards[:]
+        del self.log_probs[:]
 
-    def update(self, round, prev_state, action, next_state, reward):
-        pass
+    def action(self, state):
+        # input_ = torch.stack(state)
+        input_ = state[0].reshape(1,1)
+        out = self.policy(input_) * self.n
+
+        mean = out
+        std = 1
+        dist = Normal(mean, std)
+
+        sample = dist.sample()[0]
+        self.log_probs.append(dist.log_prob(sample))
+
+        action = torch.clamp(sample, 0, self.n)
+        return action
+
+    def update(self):
+        # discount future
+        R = 0
+        returns = []
+        for r in reversed(self.rewards):
+            R = r + self.gamma * R
+            returns.insert(0, R)
+
+        returns = torch.tensor(returns)
+        # returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+        log_probs = torch.stack(self.log_probs)
+        loss = - torch.sum(torch.mul(returns, log_probs))
+
+        self.optimizer.zero_grad()
+        __import__('pdb').set_trace()
+        loss.backward()
+        self.optimizer.step()
+
+# @gin.configurable
+# class A2C(Policy):
+    # def __init__(self, n, gamma, alpha, decay, epsilon):
+        # self.n = n
+        # self.gamma = gamma
+        # self.alpha = alpha
+        # self.decay = decay
+        # self.epsilon = epsilon
+        # self.V = torch.nn.Linear(3,1)
+
+    # def step(self, state):
+        # input_ = torch.stack(state, dim=0)
+        # logits
+        # logits = self.Q[state_idx]
+        # return self._epsilon_greedy(logits)
+
+    # def _epsilon_greedy(self, logits):
+        # if random.random() <= self.epsilon:
+            # return torch.randint(self.states - 1, size=())
+        # else:
+            # return torch.argmax(logits)
+
+    # def _to_idx(self, state):
+        # return self.n**2 * state[0] + self.n*state[1] + state[2]

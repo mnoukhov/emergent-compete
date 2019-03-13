@@ -32,16 +32,17 @@ class IteratedSenderRecver(gym.Env):
         bias = torch.randint(self.bias_space.n, size=())
         target = torch.randint(self.observation_space.n - bias, size=())
 
-        return target, bias
+        return target.float(), bias.float()
 
     def reset(self):
         self.round = 0
         self.target, self.bias = self._generate()
-        obs = [self.target + self.bias, self.target]
 
-        return obs
+        return self.target + self.bias
 
     def step(self, action):
+        self.round += 1
+
         rewards = [-torch.abs(action - self.target - self.bias),
                    -torch.abs(action - self.target)]
         # rewards = [-(action - self.target)**2,
@@ -52,21 +53,19 @@ class IteratedSenderRecver(gym.Env):
                            self.target + self.bias,
                            self.target,
                            action]
-        self.round += 1
 
         self.target, self.bias = self._generate()
-        obs = [self.target + self.bias, self.target]
+        obs = self.target + self.bias
 
         return obs, rewards, done
 
     def render(self, message=None, rewards=None):
         print('--- round {} ---'.format(self.round_info[0]))
-        print('targetS {:>2}  targetR {:>2}'.format(self.round_info[1].item(),
-                                                    self.round_info[2].item()))
-        if message:
-            print('message {:>2}    guess {:>2}'.format(message.item(),
-                                                        self.round_info[3].item()))
-        if rewards:
-            print('rewards{:>3}         {:>3}'.format(rewards[0].item(),
-                                                      rewards[1].item()))
-        print("")
+        print('targetS {:>2}   targetR {:>2}'.format(self.round_info[1].item(),
+                                                     self.round_info[2].item()))
+        if message is not None:
+            print('message {:>2.2f}    guess {:>2.2f}'.format(message.item(),
+                                                              self.round_info[3].item()))
+        if rewards is not None:
+            print('rewards{:>3.2f}         {:>3.2f}'.format(rewards[0].item(),
+                                                            rewards[1].item()))

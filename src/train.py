@@ -11,47 +11,46 @@ import game
 
 @gin.configurable
 def train(sender, recver, env, episodes, render=1000):
-    next_target = env.reset()
-    next_action = [0,0]
-    logs = [[],[]]
     for e in range(episodes):
         done = False
-        logs[0].append(0)
-        logs[1].append(0)
+        target = env.reset()
+        sender.reset()
+        recver.reset()
+        prev_action = [torch.tensor(-1.), torch.tensor(-1.)]
         while not done:
-            prev_target = next_target
-            prev_action = next_action
+            message = sender.action([target] + prev_action)
+            guess = recver.action([message] + prev_action)
 
-            message = sender.step([prev_target[0]] + prev_action)
-            guess = recver.step([message] + prev_action)
+            target, rewards, done = env.step(guess)
+            prev_action = [message, guess]
 
-            next_target, rewards, done = env.step(guess)
-            next_action = [message, guess]
+            sender.rewards.append(rewards[0])
+            recver.rewards.append(rewards[1])
 
-            sender.update(env.round - 1,
-                          [prev_target[0]] + prev_action,
-                          message,
-                          [next_target[0]] + next_action,
-                          rewards[0])
-            recver.update(env.round - 1,
-                          [prev_target[1]] + prev_action,
-                          guess,
-                          [next_target[1]] + next_action,
-                          rewards[0])
+        sender.logs.append(sum(sender.rewards) / env.round)
+        recver.logs.append(sum(recver.rewards) / env.round)
 
-            logs[0][-1] += rewards[0].item()
-            logs[0][-1] += rewards[1].item()
-
+        sender.update()
+        recver.update()
 
         if e % render == 0:
             print('EPISODE ', e)
-            env.render(message=message,
-                        rewards=rewards)
+            avg_rewards = [sender.logs[-1], recver.logs[-1]]
+            env.render(message=message, rewards=rewards)
+            print('')
 
     print('Game Over')
     x = list(range(episodes - 99))
-    plt.plot(x, running_mean(logs[0], 100), 'b',
-             x, running_mean(logs[0], 100), 'g')
+    # plt.plot(x, running_mean(logs[0], 100), 'b',
+             # x, running_mean(logs[1], 100), 'g')
+    slogs = np.array(sender.logs)
+    rlogs = np.array(recver.logs)
+
+    avg_reward = (rlogs + slogs) / 2
+    recv_advantage = rlogs - slogs
+    plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
+    plt.plot(x, running_mean(recv_advantage, 100), 'g', label='recv advantage')
+    plt.legend()
     plt.show()
 
     print(gin.operative_config_str())
