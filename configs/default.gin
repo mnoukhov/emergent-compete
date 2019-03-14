@@ -10,7 +10,7 @@ train.episodes = 10000
 # Game
 IteratedSenderRecver.num_rounds = 5
 IteratedSenderRecver.max_obs = %n
-IteratedSenderRecver.max_bias = 1
+IteratedSenderRecver.max_bias = 10
 IteratedSenderRecver.batch_size = 1
 
 # Agents
