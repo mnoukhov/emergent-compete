@@ -15,15 +15,18 @@ class Policy(object):
         self.logs = []
 
     def reset(self):
-        self.rewards = []
+        del self.rewards[:]
 
     @abstractmethod
     def action(self, state):
         pass
 
-    @abstractmethod
-    def update(self, round, prev_state, action, next_state, reward):
+    def update(self):
         pass
+
+    def avg_reward(self):
+        rewards = torch.stack(self.rewards)
+        return rewards.mean().item()
 
 
 @gin.configurable
@@ -45,9 +48,6 @@ class Human(Policy):
 
         return torch.tensor(action)
 
-    def update(self, *args):
-        pass
-
 
 @gin.configurable
 class RuleBasedSender(Policy):
@@ -60,9 +60,6 @@ class RuleBasedSender(Policy):
         target, _, _ = state
         message = target + self.bias.sample()
         return torch.clamp(message, 1, self.n)
-
-    def update(self, *args):
-        pass
 
 
 @gin.configurable
@@ -128,27 +125,23 @@ class OneShotQNet(NaiveQNet):
 
 @gin.configurable
 class DeterministicGradient(Policy):
-    def __init__(self, n, lr, gamma):
+    def __init__(self, n, lr):
         super().__init__()
         self.n = n
-        self.gamma = gamma
         self.policy = nn.Sequential(
             nn.Linear(1,1),
             nn.Sigmoid()
         )
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
 
-    def reset(self):
-        del self.rewards[:]
-
     def action(self, state):
-        input_ = state[0].reshape(1,1)
+        input_ = state[0]
         action = 1 + self.policy(input_) * (self.n - 1)
 
         return action
 
     def update(self):
-        loss = -torch.sum(torch.stack(self.rewards))
+        loss = -torch.mean(torch.stack(self.rewards))
 
         self.optimizer.zero_grad()
         loss.backward()

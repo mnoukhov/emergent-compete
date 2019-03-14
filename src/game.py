@@ -26,12 +26,15 @@ class IteratedSenderRecver(gym.Env):
         self.action_space = Discrete(max_obs)
         self.bias_space = Discrete(max_bias)
         self.observation_space = Discrete(max_obs)
+        self.batch_size = batch_size
 
     def _generate(self):
-        bias = torch.randint(self.bias_space.n, size=())
-        target = torch.randint(1, self.observation_space.n - bias, size=())
+        bias = torch.randint(self.bias_space.n,
+                             size=(self.batch_size,1)).float()
+        target = torch.randint(1, self.observation_space.n - self.bias_space.n,
+                               size=(self.batch_size,1)).float()
 
-        return target.float(), bias.float()
+        return target, bias
 
     def reset(self):
         self.round = 0
@@ -60,11 +63,11 @@ class IteratedSenderRecver(gym.Env):
 
     def render(self, message=None, rewards=None):
         print('--- round {} ---'.format(self.round_info[0]))
-        print('targetS {:>2}   targetR {:>2}'.format(self.round_info[1].item(),
-                                                     self.round_info[2].item()))
+        print('targetS {:>2}   targetR {:>2}'.format(self.round_info[1][0].item(),
+                                                     self.round_info[2][0].item()))
         if message is not None:
-            print('message {:>2.2f}    guess {:>2.2f}'.format(message.item(),
-                                                              self.round_info[3].item()))
+            print('message {:>2.2f}    guess {:>2.2f}'.format(message[0].item(),
+                                                              self.round_info[3][0].item()))
         if rewards is not None:
-            print('rewards{:>3.2f}         {:>3.2f}'.format(rewards[0].item(),
-                                                            rewards[1].item()))
+            print('rewards{:>3.2f}         {:>3.2f}'.format(rewards[0][0].item(),
+                                                            rewards[1][0].item()))

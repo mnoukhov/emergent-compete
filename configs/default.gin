@@ -11,7 +11,7 @@ train.episodes = 10000
 IteratedSenderRecver.num_rounds = 5
 IteratedSenderRecver.max_obs = %n
 IteratedSenderRecver.max_bias = 10
-IteratedSenderRecver.batch_size = 1
+IteratedSenderRecver.batch_size = 64
 
 # Agents
 #NaiveQNet.n = %n
@@ -32,7 +32,6 @@ IteratedSenderRecver.batch_size = 1
 
 DeterministicGradient.n = %n
 DeterministicGradient.lr = 1e-3
-DeterministicGradient.gamma = 1.0
 
 RuleBasedSender.n = %n
 RuleBasedSender.bias = 10
