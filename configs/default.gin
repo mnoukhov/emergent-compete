@@ -1,17 +1,20 @@
-# Shared
+# Macros
 n = 100
 
 # Main
-train.sender = @RuleBasedSender()
+train.sender = @DeterministicGradient()
 train.recver = @DeterministicGradient()
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
+train.render = 1000
+
+plot.savedir = None
 
 # Game
 IteratedSenderRecver.num_rounds = 5
 IteratedSenderRecver.max_obs = %n
 IteratedSenderRecver.max_bias = 10
-IteratedSenderRecver.batch_size = 64
+IteratedSenderRecver.batch_size = 3
 
 # Agents
 #NaiveQNet.n = %n
@@ -27,7 +30,7 @@ IteratedSenderRecver.batch_size = 64
 #OneShotQNet.epsilon = 0.05
 
 #PolicyGradient.n = %n
-#PolicyGradient.lr = 1e-4
+#PolicyGradient.lr = 1e-2
 #PolicyGradient.gamma = 1.0
 
 DeterministicGradient.n = %n

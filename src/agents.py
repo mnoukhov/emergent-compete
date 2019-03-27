@@ -129,22 +129,22 @@ class DeterministicGradient(Policy):
         super().__init__()
         self.n = n
         self.policy = nn.Sequential(
-            nn.Linear(1,1),
+            nn.Linear(3,1),
             nn.Sigmoid()
         )
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
 
     def action(self, state):
-        input_ = state[0]
+        input_ = torch.cat(state, dim=1)
         action = 1 + self.policy(input_) * (self.n - 1)
 
         return action
 
-    def update(self):
+    def update(self, retain_graph=False):
         loss = -torch.mean(torch.stack(self.rewards))
 
         self.optimizer.zero_grad()
-        loss.backward()
+        loss.backward(retain_graph=retain_graph)
         self.optimizer.step()
 
 
@@ -163,19 +163,19 @@ class PolicyGradient(Policy):
         self.log_probs = []
 
     def reset(self):
-        del self.rewards[:]
+        super().reset()
         del self.log_probs[:]
 
     def action(self, state):
         # input_ = torch.stack(state)
-        input_ = state[0].reshape(1,1)
+        input_ = state[0]
         out = self.policy(input_) * self.n
 
         mean = out
-        std = 1
+        std = 2
         dist = Normal(mean, std)
 
-        sample = dist.sample()[0]
+        sample = dist.sample()
         self.log_probs.append(dist.log_prob(sample))
 
         action = torch.clamp(sample, 0, self.n)
@@ -189,13 +189,11 @@ class PolicyGradient(Policy):
             R = r + self.gamma * R
             returns.insert(0, R)
 
-        returns = torch.tensor(returns)
-        # returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+        returns = torch.stack(returns)
         log_probs = torch.stack(self.log_probs)
-        loss = - torch.sum(torch.mul(returns, log_probs))
+        loss = - torch.mul(returns, log_probs).mean(dim=1).sum()
 
         self.optimizer.zero_grad()
-        __import__('pdb').set_trace()
         loss.backward()
         self.optimizer.step()
 

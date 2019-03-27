@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import gin
 import matplotlib.pyplot as plt
@@ -10,7 +11,7 @@ import game
 
 
 @gin.configurable
-def train(sender, recver, env, episodes, render=1000):
+def train(sender, recver, env, episodes, render):
     for e in range(episodes):
         target = env.reset()
         sender.reset()
@@ -28,39 +29,57 @@ def train(sender, recver, env, episodes, render=1000):
             sender.rewards.append(rewards[0])
             recver.rewards.append(rewards[1])
 
+            if e % render == 0:
+                env.render(message=message, rewards=rewards)
+
+
         sender.logs.append(sender.avg_reward())
         recver.logs.append(recver.avg_reward())
 
-        sender.update()
+        sender.update(retain_graph=True)
         recver.update()
 
         if e % render == 0:
             print('EPISODE ', e)
-            avg_rewards = [sender.logs[-1], recver.logs[-1]]
-            env.render(message=message, rewards=rewards)
+            print('AVG REW  {:2.2f}     {:2.2f}'.format(sender.avg_reward(), recver.avg_reward()))
             print('')
 
     print('Game Over')
     x = list(range(episodes))
-    # plt.plot(x, running_mean(logs[0], 100), 'b',
-             # x, running_mean(logs[1], 100), 'g')
     slogs = np.array(sender.logs)
     rlogs = np.array(recver.logs)
+    plot(x, slogs, rlogs, env.bias_space.n)
+    print(gin.operative_config_str())
+
+@gin.configurable
+def plot(x, slogs, rlogs, max_bias, savedir):
+    if savedir is not None:
+        savedir = os.path.join('experiments', savedir)
+        os.makedirs(savedir, exist_ok=True)
 
     avg_reward = (rlogs + slogs) / 2
     recv_advantage = rlogs - slogs
     plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
     plt.plot(x, running_mean(recv_advantage, 100), 'g', label='recv advantage')
+    plt.plot(x, np.full_like(x, -max_bias // 2), 'r', label='avg bias')
     plt.legend()
     plt.show()
+    if savedir:
+        plt.savefig('{}/advantage.png'.format(savedir))
+    plt.plot(x, running_mean(slogs, 100), 'r', label='sender')
+    plt.plot(x, running_mean(rlogs, 100), 'b', label='recver')
+    plt.legend()
+    plt.show()
+    if savedir:
+        plt.savefig('{}/rewards.png'.format(savedir))
 
-    print(gin.operative_config_str())
 
 def running_mean(x, N):
     cumsum = np.cumsum(np.insert(x, 0, 0))
     afterN = (cumsum[N:] - cumsum[:-N]) / float(N)
     beforeN = cumsum[1:N] / np.arange(1, N)
     return np.concatenate([beforeN, afterN])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

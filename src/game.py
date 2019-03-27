@@ -28,17 +28,18 @@ class IteratedSenderRecver(gym.Env):
         self.observation_space = Discrete(max_obs)
         self.batch_size = batch_size
 
-    def _generate(self):
-        bias = torch.randint(self.bias_space.n,
+    def _generate_bias(self):
+        return torch.randint(self.bias_space.n,
                              size=(self.batch_size,1)).float()
-        target = torch.randint(1, self.observation_space.n - self.bias_space.n,
-                               size=(self.batch_size,1)).float()
 
-        return target, bias
+    def _generate_target(self):
+        return torch.randint(1, self.observation_space.n - self.bias_space.n,
+                             size=(self.batch_size,1)).float()
 
     def reset(self):
         self.round = 0
-        self.target, self.bias = self._generate()
+        self.bias = self._generate_bias()
+        self.target = self._generate_target()
 
         return self.target + self.bias
 
@@ -47,8 +48,8 @@ class IteratedSenderRecver(gym.Env):
 
         # rewards = [-torch.abs(action - self.target - self.bias),
                    # -torch.abs(action - self.target)]
-        rewards = [-(action - self.target)**2,
-                   -(action - self.target - self.bias)**2]
+        rewards = [-(action - self.target)**2 / 100,
+                   -(action - self.target - self.bias)**2 / 100]
         done = (self.round >= self.num_rounds)
 
         self.round_info = [self.round,
@@ -56,7 +57,7 @@ class IteratedSenderRecver(gym.Env):
                            self.target,
                            action]
 
-        self.target, self.bias = self._generate()
+        self.target = self._generate_target()
         obs = self.target + self.bias
 
         return obs, rewards, done
@@ -64,10 +65,10 @@ class IteratedSenderRecver(gym.Env):
     def render(self, message=None, rewards=None):
         print('--- round {} ---'.format(self.round_info[0]))
         print('targetS {:>2}   targetR {:>2}'.format(self.round_info[1][0].item(),
-                                                     self.round_info[2][0].item()))
+                                                    self.round_info[2][0].item()))
         if message is not None:
             print('message {:>2.2f}    guess {:>2.2f}'.format(message[0].item(),
-                                                              self.round_info[3][0].item()))
+                                                            self.round_info[3][0].item()))
         if rewards is not None:
             print('rewards{:>3.2f}         {:>3.2f}'.format(rewards[0][0].item(),
-                                                            rewards[1][0].item()))
+                                                                rewards[1][0].item()))
