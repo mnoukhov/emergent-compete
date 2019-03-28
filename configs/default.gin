@@ -2,7 +2,7 @@
 n = 100
 
 # Main
-train.sender = @DeterministicGradient()
+train.sender = @NoComm()
 train.recver = @DeterministicGradient()
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
@@ -14,7 +14,7 @@ plot.savedir = None
 IteratedSenderRecver.num_rounds = 5
 IteratedSenderRecver.max_obs = %n
 IteratedSenderRecver.max_bias = 10
-IteratedSenderRecver.batch_size = 3
+IteratedSenderRecver.batch_size = 64
 
 # Agents
 #NaiveQNet.n = %n
@@ -39,5 +39,5 @@ DeterministicGradient.lr = 1e-3
 RuleBasedSender.n = %n
 RuleBasedSender.bias = 10
 
-#sender/Human.mode = 0
-#recver/Human.mode = 1
+#sender/DeterministicGradient.mode = 0
+#recver/DeterministicGradient.mode = 1

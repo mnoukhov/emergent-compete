@@ -52,23 +52,28 @@ class IteratedSenderRecver(gym.Env):
                    -(action - self.target - self.bias)**2 / 100]
         done = (self.round >= self.num_rounds)
 
-        self.round_info = [self.round,
-                           self.target + self.bias,
-                           self.target,
-                           action]
+        self.round_info = {
+            'round': self.round,
+            'send_target': (self.target + self.bias)[0].item(),
+            'recv_target': self.target[0].item(),
+            'guess': action[0].item(),
+            'send_loss': (-rewards[0][0].item() * 100) **0.5,
+            'recv_loss': (-rewards[1][0].item() * 100) **0.5,
+        }
 
         self.target = self._generate_target()
         obs = self.target + self.bias
 
         return obs, rewards, done
 
-    def render(self, message=None, rewards=None):
-        print('--- round {} ---'.format(self.round_info[0]))
-        print('targetS {:>2}   targetR {:>2}'.format(self.round_info[1][0].item(),
-                                                    self.round_info[2][0].item()))
-        if message is not None:
-            print('message {:>2.2f}    guess {:>2.2f}'.format(message[0].item(),
-                                                            self.round_info[3][0].item()))
-        if rewards is not None:
-            print('rewards{:>3.2f}         {:>3.2f}'.format(rewards[0][0].item(),
-                                                                rewards[1][0].item()))
+    def render(self, message=-1.0):
+        print('--- round {} ---'.format(self.round_info['round']))
+        print('targetS {:<2}   targetR {:2}'.format(
+            self.round_info['send_target'],
+            self.round_info['recv_target']))
+        print('message {:<5.2f}    guess {:5.2f}'.format(
+            message,
+            self.round_info['guess']))
+        print('losses  {:<4.2f}          {:4.2f}'.format(
+            self.round_info['send_loss'],
+            self.round_info['recv_loss']))

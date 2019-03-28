@@ -13,6 +13,7 @@ class Policy(object):
     def __init__(self):
         self.rewards = []
         self.logs = []
+        self.round_logs = []
 
     def reset(self):
         del self.rewards[:]
@@ -21,12 +22,18 @@ class Policy(object):
     def action(self, state):
         pass
 
-    def update(self):
+    def update(self, *args, **kwargs):
         pass
 
     def avg_reward(self):
-        rewards = torch.stack(self.rewards)
-        return rewards.mean().item()
+        return torch.cat(self.rewards).mean().item()
+
+    def log_reward(self):
+        rewards = torch.cat(self.rewards, dim=1)
+        round_avg = rewards.mean(dim=0).tolist()
+        avg = rewards.mean().item()
+        self.logs.append(avg)
+        self.round_logs.append(round_avg)
 
 
 @gin.configurable
@@ -47,6 +54,12 @@ class Human(Policy):
         action = int(input(prompt))
 
         return torch.tensor(action)
+
+
+@gin.configurable
+class NoComm(Policy):
+    def action(self, state):
+        return torch.ones_like(state[0])
 
 
 @gin.configurable

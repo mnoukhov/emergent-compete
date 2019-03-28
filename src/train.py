@@ -19,6 +19,7 @@ def train(sender, recver, env, episodes, render):
         prev_action = [torch.zeros(env.batch_size, 1),
                        torch.zeros(env.batch_size, 1)]
         done = False
+
         while not done:
             message = sender.action([target] + prev_action)
             guess = recver.action([message] + prev_action)
@@ -30,11 +31,10 @@ def train(sender, recver, env, episodes, render):
             recver.rewards.append(rewards[1])
 
             if e % render == 0:
-                env.render(message=message, rewards=rewards)
+                env.render(message=message[0].item())
 
-
-        sender.logs.append(sender.avg_reward())
-        recver.logs.append(recver.avg_reward())
+        sender.log_reward()
+        recver.log_reward()
 
         sender.update(retain_graph=True)
         recver.update()
@@ -46,13 +46,15 @@ def train(sender, recver, env, episodes, render):
 
     print('Game Over')
     x = list(range(episodes))
-    slogs = np.array(sender.logs)
-    rlogs = np.array(recver.logs)
-    plot(x, slogs, rlogs, env.bias_space.n)
+    plot(x, sender, recver, env)
     print(gin.operative_config_str())
 
+
 @gin.configurable
-def plot(x, slogs, rlogs, max_bias, savedir):
+def plot(x, sender, recver, env, savedir):
+    slogs = np.array(sender.logs)
+    rlogs = np.array(recver.logs)
+    max_bias = env.bias_space.n
     if savedir is not None:
         savedir = os.path.join('experiments', savedir)
         os.makedirs(savedir, exist_ok=True)
@@ -61,11 +63,12 @@ def plot(x, slogs, rlogs, max_bias, savedir):
     recv_advantage = rlogs - slogs
     plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
     plt.plot(x, running_mean(recv_advantage, 100), 'g', label='recv advantage')
-    plt.plot(x, np.full_like(x, -max_bias // 2), 'r', label='avg bias')
+    plt.plot(x, np.full_like(x, - (max_bias // 2)**2 / 100), 'r', label='avg bias')
     plt.legend()
     plt.show()
     if savedir:
         plt.savefig('{}/advantage.png'.format(savedir))
+
     plt.plot(x, running_mean(slogs, 100), 'r', label='sender')
     plt.plot(x, running_mean(rlogs, 100), 'b', label='recver')
     plt.legend()
@@ -73,8 +76,20 @@ def plot(x, slogs, rlogs, max_bias, savedir):
     if savedir:
         plt.savefig('{}/rewards.png'.format(savedir))
 
+    sround = np.array(sender.round_logs)
+    rround = np.array(recver.round_logs)
+    avg_round = (sround + rround) / 2
+    for r in range(env.num_rounds):
+        plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
+        # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
+        # plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
+    plt.legend()
+    plt.show()
+    if savedir:
+        plt.savefig('{}/round_rewards.png'.format(savedir))
 
-def running_mean(x, N):
+
+def running_mean(x, N=100):
     cumsum = np.cumsum(np.insert(x, 0, 0))
     afterN = (cumsum[N:] - cumsum[:-N]) / float(N)
     beforeN = cumsum[1:N] / np.arange(1, N)
