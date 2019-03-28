@@ -142,14 +142,13 @@ class DeterministicGradient(Policy):
         super().__init__()
         self.n = n
         self.policy = nn.Sequential(
-            nn.Linear(1,1),
+            nn.Linear(3,1),
             nn.Sigmoid()
         )
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
 
     def action(self, state):
-        # input_ = torch.cat(state, dim=1)
-        input_ = state[0]
+        input_ = torch.cat(state, dim=1)
         action = 1 + self.policy(input_) * (self.n - 1)
 
         return action

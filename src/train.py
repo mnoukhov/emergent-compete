@@ -28,7 +28,7 @@ def train(Sender, Recver, env, episodes, render):
             guess = recver.action([message] + prev_action)
 
             target, rewards, done = env.step(guess)
-            prev_action = [message, guess]
+            prev_action = [message.detach(), guess.detach()]
 
             sender.rewards.append(rewards[0])
             recver.rewards.append(rewards[1])
