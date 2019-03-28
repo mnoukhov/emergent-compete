@@ -2,8 +2,8 @@
 n = 100
 
 # Main
-train.sender = @NoComm()
-train.recver = @DeterministicGradient()
+train.Sender = @DeterministicGradient
+train.Recver = @DeterministicGradient
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
 train.render = 1000
@@ -35,9 +35,6 @@ IteratedSenderRecver.batch_size = 64
 
 DeterministicGradient.n = %n
 DeterministicGradient.lr = 1e-3
-
-RuleBasedSender.n = %n
-RuleBasedSender.bias = 10
 
 #sender/DeterministicGradient.mode = 0
 #recver/DeterministicGradient.mode = 1

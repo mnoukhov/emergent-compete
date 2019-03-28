@@ -11,7 +11,10 @@ import game
 
 
 @gin.configurable
-def train(sender, recver, env, episodes, render):
+def train(Sender, Recver, env, episodes, render):
+    sender = Sender(env.observation_space.n)
+    recver = Recver(env.action_space.n)
+
     for e in range(episodes):
         target = env.reset()
         sender.reset()
@@ -54,7 +57,8 @@ def train(sender, recver, env, episodes, render):
 def plot(x, sender, recver, env, savedir):
     slogs = np.array(sender.logs)
     rlogs = np.array(recver.logs)
-    max_bias = env.bias_space.n
+    svar = env.action_space.n**2 / 12
+    rvar = env.observation_space.n**2 / 12
     if savedir is not None:
         savedir = os.path.join('experiments', savedir)
         os.makedirs(savedir, exist_ok=True)
@@ -63,7 +67,7 @@ def plot(x, sender, recver, env, savedir):
     recv_advantage = rlogs - slogs
     plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
     plt.plot(x, running_mean(recv_advantage, 100), 'g', label='recv advantage')
-    plt.plot(x, np.full_like(x, - (max_bias // 2)**2 / 100), 'r', label='avg bias')
+    plt.plot(x, np.full_like(x, -(svar + rvar) / 200), 'r', label='baseline')
     plt.legend()
     plt.show()
     if savedir:

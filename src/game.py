@@ -23,7 +23,7 @@ class IteratedSenderRecver(gym.Env):
                  max_bias,
                  batch_size):
         self.num_rounds = num_rounds
-        self.action_space = Discrete(max_obs)
+        self.action_space = Discrete(max_obs - max_bias)
         self.bias_space = Discrete(max_bias)
         self.observation_space = Discrete(max_obs)
         self.batch_size = batch_size

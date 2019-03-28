@@ -10,7 +10,7 @@ from torch.distributions.normal import Normal
 
 
 class Policy(object):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.rewards = []
         self.logs = []
         self.round_logs = []
@@ -142,13 +142,14 @@ class DeterministicGradient(Policy):
         super().__init__()
         self.n = n
         self.policy = nn.Sequential(
-            nn.Linear(3,1),
+            nn.Linear(1,1),
             nn.Sigmoid()
         )
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
 
     def action(self, state):
-        input_ = torch.cat(state, dim=1)
+        # input_ = torch.cat(state, dim=1)
+        input_ = state[0]
         action = 1 + self.policy(input_) * (self.n - 1)
 
         return action
