@@ -18,10 +18,11 @@ import torch
 @gin.configurable
 class IteratedSenderRecver(gym.Env):
     def __init__(self,
+                 batch_size,
                  num_rounds,
                  max_obs,
                  max_bias,
-                 batch_size):
+                 min_bias=0):
         self.num_rounds = num_rounds
         self.action_space = Discrete(max_obs - max_bias)
         self.bias_space = Discrete(max_bias)
@@ -48,8 +49,8 @@ class IteratedSenderRecver(gym.Env):
 
         # rewards = [-torch.abs(action - self.target - self.bias),
                    # -torch.abs(action - self.target)]
-        rewards = [-(action - self.target)**2 / 100,
-                   -(action - self.target - self.bias)**2 / 100]
+        rewards = [-(action - self.target - self.bias)**2 / 100,
+                   -(action - self.target)**2 / 100]
         done = (self.round >= self.num_rounds)
 
         self.round_info = {

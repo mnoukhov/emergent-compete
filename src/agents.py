@@ -166,10 +166,8 @@ class PolicyGradient(Policy):
         self.gamma = gamma
         self.policy = nn.Sequential(
             nn.Linear(1,1),
-            nn.Sigmoid()
-        )
+            nn.Sigmoid())
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
-        # self.optimizer = SGD(self.policy.parameters(), lr=lr)
         self.log_probs = []
 
     def reset(self):
@@ -177,7 +175,7 @@ class PolicyGradient(Policy):
         del self.log_probs[:]
 
     def action(self, state):
-        # input_ = torch.stack(state)
+        # input_ = torch.cat(state, dim=1)
         input_ = state[0]
         out = self.policy(input_) * self.n
 
@@ -207,27 +205,29 @@ class PolicyGradient(Policy):
         loss.backward()
         self.optimizer.step()
 
-# @gin.configurable
-# class A2C(Policy):
-    # def __init__(self, n, gamma, alpha, decay, epsilon):
-        # self.n = n
-        # self.gamma = gamma
-        # self.alpha = alpha
-        # self.decay = decay
-        # self.epsilon = epsilon
-        # self.V = torch.nn.Linear(3,1)
 
-    # def step(self, state):
-        # input_ = torch.stack(state, dim=0)
-        # logits
-        # logits = self.Q[state_idx]
-        # return self._epsilon_greedy(logits)
+@gin.configurable
+class A2C(Policy):
+    def __init__(self, n, gamma, alpha, decay, epsilon):
+        self.n = n
+        self.gamma = gamma
+        self.alpha = alpha
+        self.decay = decay
+        self.epsilon = epsilon
+        self.policy = nn.Sequential(
+            nn.Linear(1,1),
+            nn.Sigmoid())
+        self.V = nn.Sequential(
+            nn.Linear(3,1),
+            nn.Sigmoid())
+        self.Q = nn.Sequential(
+            nn.Linear(3,1),
+            nn.Sigmoid())
 
-    # def _epsilon_greedy(self, logits):
-        # if random.random() <= self.epsilon:
-            # return torch.randint(self.states - 1, size=())
-        # else:
-            # return torch.argmax(logits)
+    def step(self, state):
+        input_ = torch.stack(state, dim=0)
+        logits
+        logits = self.Q[state_idx]
+        return self._epsilon_greedy(logits)
 
-    # def _to_idx(self, state):
-        # return self.n**2 * state[0] + self.n*state[1] + state[2]
+

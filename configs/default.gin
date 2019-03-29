@@ -2,8 +2,8 @@
 n = 100
 
 # Main
-train.Sender = @PolicyGradient
-train.Recver = @PolicyGradient
+train.Sender = @DeterministicGradient
+train.Recver = @DeterministicGradient
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
 train.render = 1000
@@ -11,10 +11,11 @@ train.render = 1000
 plot.savedir = None
 
 # Game
+IteratedSenderRecver.batch_size = 64
 IteratedSenderRecver.num_rounds = 5
 IteratedSenderRecver.max_obs = %n
-IteratedSenderRecver.max_bias = 10
-IteratedSenderRecver.batch_size = 64
+IteratedSenderRecver.max_bias = 15
+IteratedSenderRecver.min_bias = 10
 
 # Agents
 #NaiveQNet.n = %n
@@ -32,7 +33,7 @@ IteratedSenderRecver.batch_size = 64
 PolicyGradient.lr = 1e-3
 PolicyGradient.gamma = 1.0
 
-#DeterministicGradient.lr = 1e-3
+DeterministicGradient.lr = 1e-3
 
 #sender/DeterministicGradient.mode = 0
 #recver/DeterministicGradient.mode = 1
