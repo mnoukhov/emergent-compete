@@ -2,8 +2,8 @@
 n = 100
 
 # Main
-train.Sender = @DeterministicGradient
-train.Recver = @DeterministicGradient
+train.Sender = @PolicyGradient
+train.Recver = @PolicyGradient
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
 train.render = 1000
@@ -29,12 +29,10 @@ IteratedSenderRecver.batch_size = 64
 #OneShotQNet.decay = 1e-4
 #OneShotQNet.epsilon = 0.05
 
-#PolicyGradient.n = %n
-#PolicyGradient.lr = 1e-2
-#PolicyGradient.gamma = 1.0
+PolicyGradient.lr = 1e-3
+PolicyGradient.gamma = 1.0
 
-DeterministicGradient.n = %n
-DeterministicGradient.lr = 1e-3
+#DeterministicGradient.lr = 1e-3
 
 #sender/DeterministicGradient.mode = 0
 #recver/DeterministicGradient.mode = 1

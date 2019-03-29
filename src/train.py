@@ -12,8 +12,8 @@ import game
 
 @gin.configurable
 def train(Sender, Recver, env, episodes, render):
-    sender = Sender(env.observation_space.n)
-    recver = Recver(env.action_space.n)
+    sender = Sender(mode=0, n=env.observation_space.n)
+    recver = Recver(mode=1, n=env.action_space.n)
 
     for e in range(episodes):
         target = env.reset()
@@ -39,7 +39,7 @@ def train(Sender, Recver, env, episodes, render):
         sender.log_reward()
         recver.log_reward()
 
-        sender.update(retain_graph=True)
+        sender.update()
         recver.update()
 
         if e % render == 0:

@@ -10,7 +10,8 @@ from torch.distributions.normal import Normal
 
 
 class Policy(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, mode, *args, **kwargs):
+        self.mode = mode
         self.rewards = []
         self.logs = []
         self.round_logs = []
@@ -38,11 +39,6 @@ class Policy(object):
 
 @gin.configurable
 class Human(Policy):
-    def __init__(self, mode):
-        super().__init__()
-        # 0 = sender, 1 = receiver
-        self.mode = mode
-
     def action(self, state):
         obs, _, _ = state
 
@@ -138,8 +134,8 @@ class OneShotQNet(NaiveQNet):
 
 @gin.configurable
 class DeterministicGradient(Policy):
-    def __init__(self, n, lr):
-        super().__init__()
+    def __init__(self, n, lr, **kwargs):
+        super().__init__(**kwargs)
         self.n = n
         self.policy = nn.Sequential(
             nn.Linear(3,1),
@@ -153,7 +149,8 @@ class DeterministicGradient(Policy):
 
         return action
 
-    def update(self, retain_graph=False):
+    def update(self):
+        retain_graph = (self.mode == 0)
         loss = -torch.mean(torch.stack(self.rewards))
 
         self.optimizer.zero_grad()
@@ -163,8 +160,8 @@ class DeterministicGradient(Policy):
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, n, lr, gamma):
-        super().__init__()
+    def __init__(self, n, lr, gamma, **kwargs):
+        super().__init__(**kwargs)
         self.n = n
         self.gamma = gamma
         self.policy = nn.Sequential(
@@ -191,7 +188,7 @@ class PolicyGradient(Policy):
         sample = dist.sample()
         self.log_probs.append(dist.log_prob(sample))
 
-        action = torch.clamp(sample, 0, self.n)
+        action = sample.round().clamp(0, self.n)
         return action
 
     def update(self):
