@@ -19,8 +19,8 @@ def train(Sender, Recver, env, episodes, render):
         target = env.reset()
         sender.reset()
         recver.reset()
-        prev_action = [torch.zeros(env.batch_size, 1),
-                       torch.zeros(env.batch_size, 1)]
+        prev_action = [torch.zeros(env.batch_size,1),
+                       torch.zeros(env.batch_size,1)]
         done = False
 
         while not done:
@@ -59,6 +59,7 @@ def plot(x, sender, recver, env, savedir):
     rlogs = np.array(recver.logs)
     svar = env.action_space.n**2 / 12
     rvar = env.observation_space.n**2 / 12
+    bias_mid = env.bias_space.low + env.bias_space.range / 2
     if savedir is not None:
         savedir = os.path.join('experiments', savedir)
         os.makedirs(savedir, exist_ok=True)
@@ -67,7 +68,8 @@ def plot(x, sender, recver, env, savedir):
     recv_advantage = rlogs - slogs
     plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
     plt.plot(x, running_mean(recv_advantage, 100), 'g', label='recv advantage')
-    plt.plot(x, np.full_like(x, -(svar + rvar) / 200), 'r', label='baseline')
+    plt.plot(x, np.full_like(x, -(svar + rvar) / 200), 'r', label='nocomm-baseline')
+    plt.plot(x, np.full_like(x, -(bias_mid)**2 / 100), 'y', label='midbias-baseline')
     plt.legend()
     plt.show()
     if savedir:

@@ -151,7 +151,7 @@ class DeterministicGradient(Policy):
 
     def update(self):
         retain_graph = (self.mode == 0)
-        loss = -torch.mean(torch.stack(self.rewards))
+        loss = -torch.mean(torch.cat(self.rewards, dim=1))
 
         self.optimizer.zero_grad()
         loss.backward(retain_graph=retain_graph)
@@ -197,8 +197,9 @@ class PolicyGradient(Policy):
             R = r + self.gamma * R
             returns.insert(0, R)
 
-        returns = torch.stack(returns)
-        log_probs = torch.stack(self.log_probs)
+        returns = torch.cat(returns, dim=1)
+        # returns = returns - returns.mean(dim=0)
+        log_probs = torch.cat(self.log_probs, dim=1)
         loss = - torch.mul(returns, log_probs).mean(dim=1).sum()
 
         self.optimizer.zero_grad()

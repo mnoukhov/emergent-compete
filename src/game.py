@@ -10,9 +10,23 @@ steps 3 and next round's step 1 are combined
 """
 import gin
 import gym
-from gym.spaces import Discrete, Tuple
+from gym.spaces import Discrete
 import numpy as np
 import torch
+
+
+class DiscreteRange(Discrete):
+    def __init__(self, low, high):
+        self.low = low
+        self.high = high
+        self.range = high - low
+        super().__init__(self.range)
+
+    def sample(self):
+        return super().sample() + self.low
+
+    def contains(self, x):
+        return super().contains(x - self.low)
 
 
 @gin.configurable
@@ -20,21 +34,22 @@ class IteratedSenderRecver(gym.Env):
     def __init__(self,
                  batch_size,
                  num_rounds,
-                 max_obs,
+                 num_targets,
                  max_bias,
                  min_bias=0):
         self.num_rounds = num_rounds
-        self.action_space = Discrete(max_obs - max_bias)
-        self.bias_space = Discrete(max_bias)
-        self.observation_space = Discrete(max_obs)
+        self.num_targets = num_targets
+        self.action_space = Discrete(num_targets)
+        self.observation_space = Discrete(num_targets)
+        self.bias_space = DiscreteRange(min_bias, max_bias)
         self.batch_size = batch_size
 
     def _generate_bias(self):
-        return torch.randint(self.bias_space.n,
+        return torch.randint(self.bias_space.low, self.bias_space.high,
                              size=(self.batch_size,1)).float()
 
     def _generate_target(self):
-        return torch.randint(1, self.observation_space.n - self.bias_space.n,
+        return torch.randint(self.action_space.n,
                              size=(self.batch_size,1)).float()
 
     def reset(self):
@@ -42,7 +57,7 @@ class IteratedSenderRecver(gym.Env):
         self.bias = self._generate_bias()
         self.target = self._generate_target()
 
-        return self.target + self.bias
+        return (self.target + self.bias) % self.num_targets
 
     def step(self, action):
         self.round += 1
@@ -72,9 +87,9 @@ class IteratedSenderRecver(gym.Env):
         print('targetS {:<2}   targetR {:2}'.format(
             self.round_info['send_target'],
             self.round_info['recv_target']))
-        print('message {:<5.2f}    guess {:5.2f}'.format(
+        print('message {: <6.2f}   guess {:<5.2f}'.format(
             message,
             self.round_info['guess']))
-        print('losses  {:<4.2f}          {:4.2f}'.format(
+        print('losses  {: <5.2f}          {:<4.2f}'.format(
             self.round_info['send_loss'],
             self.round_info['recv_loss']))
