@@ -57,9 +57,8 @@ def train(Sender, Recver, env, episodes, render):
 def plot(x, sender, recver, env, savedir):
     slogs = np.array(sender.logs)
     rlogs = np.array(recver.logs)
-    svar = env.action_space.n**2 / 12
-    rvar = env.observation_space.n**2 / 12
-    bias_mid = env.bias_space.low + env.bias_space.range / 2
+    target_var = env.observation_space.n**2 / 12
+    bias_var = (env.bias_space.low + env.bias_space.range / 2)**2
     if savedir is not None:
         savedir = os.path.join('experiments', savedir)
         os.makedirs(savedir, exist_ok=True)
@@ -67,9 +66,8 @@ def plot(x, sender, recver, env, savedir):
     avg_reward = (rlogs + slogs) / 2
     recv_advantage = rlogs - slogs
     plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
-    plt.plot(x, running_mean(recv_advantage, 100), 'g', label='recv advantage')
-    plt.plot(x, np.full_like(x, -(svar + rvar) / 200), 'r', label='nocomm-baseline')
-    plt.plot(x, np.full_like(x, -(bias_mid)**2 / 100), 'y', label='midbias-baseline')
+    plt.plot(x, np.full_like(x, -target_var), 'r', label='nocomm baseline')
+    plt.plot(x, np.full_like(x, -bias_var), 'y', label='midbias baseline')
     plt.legend()
     plt.show()
     if savedir:

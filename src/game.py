@@ -55,32 +55,36 @@ class IteratedSenderRecver(gym.Env):
     def reset(self):
         self.round = 0
         self.bias = self._generate_bias()
-        self.target = self._generate_target()
+        self.recv_target = self._generate_target()
+        self.send_target = (self.recv_target + self.bias) % self.num_targets
 
-        return (self.target + self.bias) % self.num_targets
+        return self.send_target
+
+    def _distance(self, pred, target):
+        dist = torch.abs(pred - target)
+        circle_dist = torch.min(dist, self.num_targets - dist)
+        return circle_dist ** 2
 
     def step(self, action):
         self.round += 1
 
-        # rewards = [-torch.abs(action - self.target - self.bias),
-                   # -torch.abs(action - self.target)]
-        rewards = [-(action - self.target - self.bias)**2 / 100,
-                   -(action - self.target)**2 / 100]
+        rewards = [- self._distance(action, self.send_target),
+                   - self._distance(action, self.recv_target)]
         done = (self.round >= self.num_rounds)
 
         self.round_info = {
             'round': self.round,
-            'send_target': (self.target + self.bias)[0].item(),
-            'recv_target': self.target[0].item(),
+            'send_target': self.send_target[0].item(),
+            'recv_target': self.recv_target[0].item(),
             'guess': action[0].item(),
-            'send_loss': (-rewards[0][0].item() * 100) **0.5,
-            'recv_loss': (-rewards[1][0].item() * 100) **0.5,
+            'send_loss': (-rewards[0][0].item()) **0.5,
+            'recv_loss': (-rewards[1][0].item()) **0.5,
         }
 
-        self.target = self._generate_target()
-        obs = self.target + self.bias
+        self.recv_target = self._generate_target()
+        self.send_target = (self.recv_target + self.bias) % self.num_targets
 
-        return obs, rewards, done
+        return self.send_target, rewards, done
 
     def render(self, message=-1.0):
         print('--- round {} ---'.format(self.round_info['round']))

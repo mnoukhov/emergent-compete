@@ -186,7 +186,7 @@ class PolicyGradient(Policy):
         sample = dist.sample()
         self.log_probs.append(dist.log_prob(sample))
 
-        action = sample.round().clamp(0, self.n)
+        action = sample.clamp(0, self.n)
         return action
 
     def update(self):
@@ -198,7 +198,7 @@ class PolicyGradient(Policy):
             returns.insert(0, R)
 
         returns = torch.cat(returns, dim=1)
-        # returns = returns - returns.mean(dim=0)
+        returns = (returns - returns.mean(dim=1, keepdim=True)) / (returns.std() + 1e-8)
         log_probs = torch.cat(self.log_probs, dim=1)
         loss = - torch.mul(returns, log_probs).mean(dim=1).sum()
 
