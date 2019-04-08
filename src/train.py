@@ -11,7 +11,7 @@ import game
 
 
 @gin.configurable
-def train(Sender, Recver, env, episodes, render):
+def train(Sender, Recver, env, episodes, render, log):
     sender = Sender(mode=0, n=env.observation_space.n)
     recver = Recver(mode=1, n=env.action_space.n)
 
@@ -33,7 +33,7 @@ def train(Sender, Recver, env, episodes, render):
             sender.rewards.append(rewards[0])
             recver.rewards.append(rewards[1])
 
-            if e % render == 0:
+            if render and e % render == 0:
                 env.render(message=message[0].item())
 
         sender.log_reward()
@@ -42,9 +42,11 @@ def train(Sender, Recver, env, episodes, render):
         sender.update()
         recver.update()
 
-        if e % render == 0:
-            print('EPISODE ', e)
-            print('AVG REW  {:2.2f}     {:2.2f}'.format(sender.avg_reward(), recver.avg_reward()))
+        if log and e % log == 0:
+            print(f'EPISODE {e}')
+            print(f'REWRD   {sender.avg_reward:2.2f}     {recver.avg_reward:2.2f}')
+            print(f'LOSS    {sender.avg_loss:2.2f}     {recver.avg_loss:2.2f}')
+            print(f'GRADS   {sender.avg_grad:<2.2f}     {recver.avg_grad:<2.2f}')
             print('')
 
     print('Game Over')
@@ -55,19 +57,23 @@ def train(Sender, Recver, env, episodes, render):
 
 @gin.configurable
 def plot(x, sender, recver, env, savedir):
-    slogs = np.array(sender.logs)
-    rlogs = np.array(recver.logs)
-    target_var = env.observation_space.n**2 / 12
-    bias_var = (env.bias_space.low + env.bias_space.range / 2)**2
     if savedir is not None:
         savedir = os.path.join('experiments', savedir)
         os.makedirs(savedir, exist_ok=True)
 
+    slogs = np.array(sender.logs)
+    rlogs = np.array(recver.logs)
     avg_reward = (rlogs + slogs) / 2
     recv_advantage = rlogs - slogs
-    plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
-    plt.plot(x, np.full_like(x, -target_var), 'r', label='nocomm baseline')
-    plt.plot(x, np.full_like(x, -bias_var), 'y', label='midbias baseline')
+    plt.plot(x, running_mean(avg_reward, 100),
+             'b', label='avg reward')
+
+    target_std = env.observation_space.n / (12**0.5)
+    bias_mid = env.bias_space.low + (env.bias_space.range / 2)
+    plt.plot(x, np.full_like(x, env.dist_to_reward(target_std)),
+             'r', label='nocomm baseline')
+    plt.plot(x, np.full_like(x, env.dist_to_reward(bias_mid)),
+             'y', label='midbias baseline')
     plt.legend()
     plt.show()
     if savedir:

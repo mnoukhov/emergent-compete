@@ -52,6 +52,13 @@ class IteratedSenderRecver(gym.Env):
         return torch.randint(self.action_space.n,
                              size=(self.batch_size,1)).float()
 
+    def _dist(self, pred, target):
+        dist = torch.abs(pred - target)
+        return torch.min(dist, self.num_targets - dist)
+
+    def dist_to_reward(self, loss):
+        return -loss / (self.num_targets / 2)
+
     def reset(self):
         self.round = 0
         self.bias = self._generate_bias()
@@ -60,16 +67,12 @@ class IteratedSenderRecver(gym.Env):
 
         return self.send_target
 
-    def _distance(self, pred, target):
-        dist = torch.abs(pred - target)
-        circle_dist = torch.min(dist, self.num_targets - dist)
-        return circle_dist ** 2
-
     def step(self, action):
         self.round += 1
 
-        rewards = [- self._distance(action, self.send_target),
-                   - self._distance(action, self.recv_target)]
+        dists = [self._dist(action, self.send_target),
+                 self._dist(action, self.recv_target)]
+        rewards = [self.dist_to_reward(d) for d in dists]
         done = (self.round >= self.num_rounds)
 
         self.round_info = {
@@ -77,8 +80,8 @@ class IteratedSenderRecver(gym.Env):
             'send_target': self.send_target[0].item(),
             'recv_target': self.recv_target[0].item(),
             'guess': action[0].item(),
-            'send_loss': (-rewards[0][0].item()) **0.5,
-            'recv_loss': (-rewards[1][0].item()) **0.5,
+            'send_dist': dists[0][0].item(),
+            'recv_dist': dists[1][0].item(),
         }
 
         self.recv_target = self._generate_target()
@@ -94,6 +97,6 @@ class IteratedSenderRecver(gym.Env):
         print('message {: <6.2f}   guess {:<5.2f}'.format(
             message,
             self.round_info['guess']))
-        print('losses  {: <5.2f}          {:<4.2f}'.format(
-            self.round_info['send_loss'],
-            self.round_info['recv_loss']))
+        print('dists   {: <5.2f}          {:<4.2f}'.format(
+            self.round_info['send_dist'],
+            self.round_info['recv_dist']))

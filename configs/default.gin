@@ -1,9 +1,10 @@
 # Main
-train.Sender = @PolicyGradient
+train.Sender = @UniformBias
 train.Recver = @PolicyGradient
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
-train.render = 1000
+train.render = None
+train.log = 1000
 
 plot.savedir = None
 
@@ -27,10 +28,13 @@ IteratedSenderRecver.min_bias = 0
 #OneShotQNet.decay = 1e-4
 #OneShotQNet.epsilon = 0.05
 
-PolicyGradient.lr = 1e-3
-PolicyGradient.gamma = 1.0
+PolicyGradient.lr = 1e-4
+PolicyGradient.gamma = 0.99
+PolicyGradient.std = 5
 
-DeterministicGradient.lr = 1e-3
+UniformBias.bias = 0
+
+#DeterministicGradient.lr = 1e-4
 
 #sender/DeterministicGradient.mode = 0
 #recver/DeterministicGradient.mode = 1

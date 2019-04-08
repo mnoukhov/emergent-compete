@@ -16,18 +16,20 @@ class Policy(object):
         self.logs = []
         self.round_logs = []
 
-    def reset(self):
-        del self.rewards[:]
+    @property
+    def avg_grad(self):
+        return 0.0
 
-    @abstractmethod
-    def action(self, state):
-        pass
-
-    def update(self, *args, **kwargs):
-        pass
-
+    @property
     def avg_reward(self):
         return torch.cat(self.rewards).mean().item()
+
+    @property
+    def avg_loss(self):
+        return 0.0
+
+    def reset(self):
+        del self.rewards[:]
 
     def log_reward(self):
         rewards = torch.cat(self.rewards, dim=1)
@@ -35,6 +37,13 @@ class Policy(object):
         avg = rewards.mean().item()
         self.logs.append(avg)
         self.round_logs.append(round_avg)
+
+    @abstractmethod
+    def action(self, state):
+        pass
+
+    def update(self, *args, **kwargs):
+        pass
 
 
 @gin.configurable
@@ -59,9 +68,9 @@ class NoComm(Policy):
 
 
 @gin.configurable
-class RuleBasedSender(Policy):
-    def __init__(self, n, bias):
-        super().__init__()
+class UniformBias(Policy):
+    def __init__(self, n, bias, **kwargs):
+        super().__init__(**kwargs)
         self.bias = Uniform(0, bias)
         self.n = n
 
@@ -160,7 +169,7 @@ class DeterministicGradient(Policy):
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, n, lr, gamma, **kwargs):
+    def __init__(self, n, lr, gamma, std, **kwargs):
         super().__init__(**kwargs)
         self.n = n
         self.gamma = gamma
@@ -168,11 +177,24 @@ class PolicyGradient(Policy):
             nn.Linear(1,1),
             nn.Sigmoid())
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
+        self.std = std
         self.log_probs = []
+        self.grads = []
+        self.losses = []
+
+    @property
+    def avg_grad(self):
+        return torch.stack(self.grads).abs().mean().item()
+
+    @property
+    def avg_loss(self):
+        return torch.stack(self.losses).mean().item()
 
     def reset(self):
         super().reset()
         del self.log_probs[:]
+        del self.grads[:]
+        del self.losses[:]
 
     def action(self, state):
         # input_ = torch.cat(state, dim=1)
@@ -180,13 +202,11 @@ class PolicyGradient(Policy):
         out = self.policy(input_) * self.n
 
         mean = out
-        std = 2
-        dist = Normal(mean, std)
-
+        dist = Normal(mean, self.std)
         sample = dist.sample()
         self.log_probs.append(dist.log_prob(sample))
 
-        action = sample.clamp(0, self.n)
+        action = sample.round() % self.n
         return action
 
     def update(self):
@@ -198,12 +218,13 @@ class PolicyGradient(Policy):
             returns.insert(0, R)
 
         returns = torch.cat(returns, dim=1)
-        returns = (returns - returns.mean(dim=1, keepdim=True)) / (returns.std() + 1e-8)
         log_probs = torch.cat(self.log_probs, dim=1)
         loss = - torch.mul(returns, log_probs).mean(dim=1).sum()
+        self.losses.append(loss)
 
         self.optimizer.zero_grad()
         loss.backward()
+        self.grads.append(torch.stack([x.grad.mean() for x in self.policy.parameters()]).abs().mean().detach())
         self.optimizer.step()
 
 
@@ -230,5 +251,3 @@ class A2C(Policy):
         logits
         logits = self.Q[state_idx]
         return self._epsilon_greedy(logits)
-
-
