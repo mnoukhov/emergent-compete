@@ -9,34 +9,38 @@ from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
 
 
+def discount_return(rewards, gamma):
+    R = 0
+    discounted = []
+    for r in reversed(rewards):
+        R = r + gamma * R
+        discounted.insert(0, R)
+
+    return discounted
+
+
 class Policy(object):
     def __init__(self, mode, *args, **kwargs):
         self.mode = mode
         self.rewards = []
-        self.logs = []
-        self.round_logs = []
-
-    @property
-    def avg_grad(self):
-        return 0.0
-
-    @property
-    def avg_reward(self):
-        return torch.cat(self.rewards).mean().item()
-
-    @property
-    def avg_loss(self):
-        return 0.0
+        self.logger = {
+            'ep_reward': [],
+            'round_reward': [],
+        }
 
     def reset(self):
         del self.rewards[:]
 
+    def last(self, metric):
+        values = self.logger.get(metric, torch.zeros(1))
+        return values[-1].item()
+
     def log_reward(self):
         rewards = torch.cat(self.rewards, dim=1)
         round_avg = rewards.mean(dim=0).tolist()
-        avg = rewards.mean().item()
-        self.logs.append(avg)
-        self.round_logs.append(round_avg)
+        avg = rewards.mean()
+        self.logger['ep_reward'].append(avg)
+        self.logger['round_reward'].append(round_avg)
 
     @abstractmethod
     def action(self, state):
@@ -169,8 +173,8 @@ class DeterministicGradient(Policy):
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, n, lr, gamma, std, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, n, lr, gamma, std, mode):
+        super().__init__(mode)
         self.n = n
         self.gamma = gamma
         self.policy = nn.Sequential(
@@ -178,23 +182,16 @@ class PolicyGradient(Policy):
             nn.Sigmoid())
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
         self.std = std
+
         self.log_probs = []
-        self.grads = []
-        self.losses = []
-
-    @property
-    def avg_grad(self):
-        return torch.stack(self.grads).abs().mean().item()
-
-    @property
-    def avg_loss(self):
-        return torch.stack(self.losses).mean().item()
+        self.logger.update({
+            'grad': [],
+            'loss': [],
+        })
 
     def reset(self):
         super().reset()
         del self.log_probs[:]
-        del self.grads[:]
-        del self.losses[:]
 
     def action(self, state):
         # input_ = torch.cat(state, dim=1)
@@ -210,21 +207,17 @@ class PolicyGradient(Policy):
         return action
 
     def update(self):
-        # discount future
-        R = 0
-        returns = []
-        for r in reversed(self.rewards):
-            R = r + self.gamma * R
-            returns.insert(0, R)
+        disc_returns = discount_return(self.rewards, self.gamma)
+        returns = torch.cat(disc_returns, dim=1)
+        logprobs = torch.cat(self.log_probs, dim=1)
 
-        returns = torch.cat(returns, dim=1)
-        log_probs = torch.cat(self.log_probs, dim=1)
-        loss = - torch.mul(returns, log_probs).mean(dim=1).sum()
-        self.losses.append(loss)
+        loss = -(returns * logprobs).mean()
+        __import__('pdb').set_trace()
+        self.logger['loss'].append(loss.detach())
 
         self.optimizer.zero_grad()
         loss.backward()
-        self.grads.append(torch.stack([x.grad.mean() for x in self.policy.parameters()]).abs().mean().detach())
+        self.logger['grad'].append(torch.stack([x.grad.mean() for x in self.policy.parameters()]).mean().detach())
         self.optimizer.step()
 
 

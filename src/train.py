@@ -42,11 +42,11 @@ def train(Sender, Recver, env, episodes, render, log):
         sender.update()
         recver.update()
 
-        if log and e % log == 0:
+        if log and e > 0 and e % log == 0:
             print(f'EPISODE {e}')
-            print(f'REWRD   {sender.avg_reward:2.2f}     {recver.avg_reward:2.2f}')
-            print(f'LOSS    {sender.avg_loss:2.2f}     {recver.avg_loss:2.2f}')
-            print(f'GRADS   {sender.avg_grad:<2.2f}     {recver.avg_grad:<2.2f}')
+            print('REWRD   {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
+            print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
+            print('GRADS   {:2.2f}     {:2.2f}'.format(sender.last('grad'), recver.last('grad')))
             print('')
 
     print('Game Over')
@@ -61,8 +61,8 @@ def plot(x, sender, recver, env, savedir):
         savedir = os.path.join('experiments', savedir)
         os.makedirs(savedir, exist_ok=True)
 
-    slogs = np.array(sender.logs)
-    rlogs = np.array(recver.logs)
+    slogs = np.array(sender.logger['ep_reward'])
+    rlogs = np.array(recver.logger['ep_reward'])
     avg_reward = (rlogs + slogs) / 2
     recv_advantage = rlogs - slogs
     plt.plot(x, running_mean(avg_reward, 100),
@@ -86,8 +86,8 @@ def plot(x, sender, recver, env, savedir):
     if savedir:
         plt.savefig('{}/rewards.png'.format(savedir))
 
-    sround = np.array(sender.round_logs)
-    rround = np.array(recver.round_logs)
+    sround = np.array(sender.logger['round_reward'])
+    rround = np.array(recver.logger['round_reward'])
     avg_round = (sround + rround) / 2
     for r in range(env.num_rounds):
         plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))

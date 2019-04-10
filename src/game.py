@@ -56,8 +56,8 @@ class IteratedSenderRecver(gym.Env):
         dist = torch.abs(pred - target)
         return torch.min(dist, self.num_targets - dist)
 
-    def dist_to_reward(self, loss):
-        return -loss / (self.num_targets / 2)
+    def dist_to_reward(self, dist):
+        return - dist / (self.num_targets / 2)
 
     def reset(self):
         self.round = 0
