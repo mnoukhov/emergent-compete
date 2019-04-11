@@ -71,18 +71,44 @@ class TestReward(unittest.TestCase):
 
         self.assertEqual(max(rewards), rewards[idx])
 
-    # def test_reward(self):
-        # action = torch.tensor([40.])
-        # send_target = self.isr.send_target
-        # recv_target = self.isr.recv_target
-        # _, rewards, _ = self.isr.step(action)
+    def test_min(self):
+        target = torch.tensor(40.)
+        pred = target + self.isr.num_targets // 2
+        reward = self.isr._reward(pred, target)
 
-        # exp_send_reward = self.isr.dist_to_reward(send_target - action)
-        # exp_recv_reward = self.isr.dist_to_reward(recv_target - action)
+        self.assertEqual(reward, -1.)
 
-        # send_reward, recv_reward = rewards
-        # self.assertEqual(send_reward, exp_send_reward)
-        # self.assertEqual(recv_reward, exp_recv_reward)
+    def test_max(self):
+        target = torch.tensor(40.)
+        pred = target
+        reward = self.isr._reward(pred, target)
+
+        self.assertEqual(reward, 1.)
+
+
+class TestStep(unittest.TestCase):
+    def setUp(self):
+        self.isr = IteratedSenderRecver(batch_size=1,
+                                        num_rounds=5,
+                                        num_targets=100,
+                                        max_bias=10)
+        self.isr.reset()
+        self.isr.num_targets = 100
+        self.isr.send_target = torch.tensor([50.])
+        self.isr.recv_target = torch.tensor([45.])
+
+    def test_reward(self):
+        action = torch.tensor([20.])
+        send_target = self.isr.send_target
+        recv_target = self.isr.recv_target
+        _, rewards, _ = self.isr.step(action)
+        send_reward, recv_reward = rewards
+
+        exp_send_reward = self.isr._reward(send_target, action)
+        exp_recv_reward = self.isr._reward(recv_target, action)
+
+        self.assertEqual(send_reward, exp_send_reward)
+        self.assertEqual(recv_reward, exp_recv_reward)
 
 
 if __name__ == '__main__':
