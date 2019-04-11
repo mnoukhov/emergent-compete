@@ -14,6 +14,8 @@ from gym.spaces import Discrete
 import numpy as np
 import torch
 
+import math
+
 
 class DiscreteRange(Discrete):
     def __init__(self, low, high):
@@ -52,12 +54,12 @@ class IteratedSenderRecver(gym.Env):
         return torch.randint(self.action_space.n,
                              size=(self.batch_size,1)).float()
 
-    def _dist(self, pred, target):
-        dist = torch.abs(pred - target)
-        return torch.min(dist, self.num_targets - dist)
-
-    def dist_to_reward(self, dist):
-        return - dist / (self.num_targets / 2)
+    def _reward(self, pred, target=None):
+        if target is None:
+            target = torch.tensor(0.)
+        norm_dist = (pred - target) / self.num_targets
+        radian_dist = 2*math.pi*norm_dist
+        return torch.cos(radian_dist)
 
     def reset(self):
         self.round = 0
@@ -70,9 +72,8 @@ class IteratedSenderRecver(gym.Env):
     def step(self, action):
         self.round += 1
 
-        dists = [self._dist(action, self.send_target),
-                 self._dist(action, self.recv_target)]
-        rewards = [self.dist_to_reward(d) for d in dists]
+        rewards = [self._reward(action, self.send_target),
+                   self._reward(action, self.recv_target)]
         done = (self.round >= self.num_rounds)
 
         self.round_info = {
@@ -80,8 +81,8 @@ class IteratedSenderRecver(gym.Env):
             'send_target': self.send_target[0].item(),
             'recv_target': self.recv_target[0].item(),
             'guess': action[0].item(),
-            'send_dist': dists[0][0].item(),
-            'recv_dist': dists[1][0].item(),
+            'send_dist': torch.abs(action[0] - self.send_target[0]).item(),
+            'recv_dist': torch.abs(action[0] - self.recv_target[0]).item(),
         }
 
         self.recv_target = self._generate_target()

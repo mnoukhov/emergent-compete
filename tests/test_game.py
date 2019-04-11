@@ -4,59 +4,85 @@ import torch
 
 from src.game import IteratedSenderRecver
 
-class TestStep(unittest.TestCase):
+class TestReward(unittest.TestCase):
     def setUp(self):
         self.isr = IteratedSenderRecver(batch_size=1,
                                         num_rounds=5,
                                         num_targets=100,
                                         max_bias=10)
         self.isr.reset()
-        self.isr.send_target = torch.tensor([50])
-        self.isr.recv_target = torch.tensor([45])
+        self.isr.num_targets = 100
+        self.isr.send_target = torch.tensor([50.])
+        self.isr.recv_target = torch.tensor([45.])
 
-    def test_dist_regular(self):
-        pred = torch.tensor(40)
-        target = torch.tensor(60)
-        dist = self.isr._dist(pred, target)
-        self.assertEqual(dist, target - pred)
+    def test_commute(self):
+        pred = torch.tensor(10.)
+        target = torch.tensor(90.)
+        reward = self.isr._reward(pred, target)
 
-    def test_dist_circle(self):
-        pred = torch.tensor(10)
-        target = torch.tensor(90)
-        dist = self.isr._dist(pred, target)
-        self.assertEqual(dist, 20)
+        pred = torch.tensor(90.)
+        target = torch.tensor(10.)
+        other_reward = self.isr._reward(pred, target)
 
-    def test_dist_to_reward(self):
-        self.isr.num_targets = 300
-        dist = 30
-        exp_reward = -30 / 150
-        self.assertEqual(self.isr.dist_to_reward(dist), exp_reward)
+        self.assertEqual(reward, other_reward)
 
-    def test_min_reward(self):
-        action = self.isr.send_target + self.isr.num_targets/2
-        _, rewards, _ = self.isr.step(action)
-        send_reward, _ = rewards
-        self.assertEqual(send_reward.item(), -1)
+    def test_shift(self):
+        pred = torch.tensor(40.)
+        target = torch.tensor(60.)
+        reward = self.isr._reward(pred, target)
 
-    def test_max_reward(self):
-        action = self.isr.send_target
-        _, rewards, _ = self.isr.step(action)
+        pred += 20
+        target += 20
+        other_reward = self.isr._reward(pred, target)
 
-        send_reward, _ = rewards
-        self.assertEqual(send_reward.item(), 0)
+        self.assertEqual(reward, other_reward)
 
-    def test_reward(self):
-        action = torch.tensor([40])
-        send_target = self.isr.send_target
-        recv_target = self.isr.recv_target
-        _, rewards, _ = self.isr.step(action)
+    def test_circle(self):
+        pred = torch.tensor(10.)
+        target = torch.tensor(90.)
+        reward = self.isr._reward(pred, target).item()
 
-        exp_send_reward = self.isr.dist_to_reward(send_target - action)
-        exp_recv_reward = self.isr.dist_to_reward(recv_target - action)
+        pred = torch.tensor(0.)
+        target = torch.tensor(20.)
+        other_reward = self.isr._reward(pred, target).item()
 
-        send_reward, recv_reward = rewards
-        self.assertEqual(send_reward, exp_send_reward)
-        self.assertEqual(recv_reward, exp_recv_reward)
+        self.assertAlmostEqual(reward, other_reward, delta=1e-6)
+
+    def test_min_is_opposite(self):
+        rewards = []
+        idx = 10
+        target = torch.tensor(idx).float()
+        opposite_idx = idx + self.isr.num_targets // 2
+        for i in range(self.isr.num_targets):
+            pred = torch.tensor(i).float()
+            reward = self.isr._reward(pred, target)
+            rewards.append(reward.item())
+
+        self.assertEqual(min(rewards), rewards[opposite_idx])
+
+    def test_max_is_same(self):
+        rewards = []
+        idx = 10
+        target = torch.tensor(idx).float()
+        for i in range(self.isr.num_targets):
+            pred = torch.tensor(i).float()
+            reward = self.isr._reward(pred, target)
+            rewards.append(reward.item())
+
+        self.assertEqual(max(rewards), rewards[idx])
+
+    # def test_reward(self):
+        # action = torch.tensor([40.])
+        # send_target = self.isr.send_target
+        # recv_target = self.isr.recv_target
+        # _, rewards, _ = self.isr.step(action)
+
+        # exp_send_reward = self.isr.dist_to_reward(send_target - action)
+        # exp_recv_reward = self.isr.dist_to_reward(recv_target - action)
+
+        # send_reward, recv_reward = rewards
+        # self.assertEqual(send_reward, exp_send_reward)
+        # self.assertEqual(recv_reward, exp_recv_reward)
 
 
 if __name__ == '__main__':

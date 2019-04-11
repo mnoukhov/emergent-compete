@@ -42,11 +42,11 @@ def train(Sender, Recver, env, episodes, render, log):
         sender.update()
         recver.update()
 
-        if log and e > 0 and e % log == 0:
+        if log and e % log == 0:
             print(f'EPISODE {e}')
             print('REWRD   {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
             print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
-            print('GRADS   {:2.2f}     {:2.2f}'.format(sender.last('grad'), recver.last('grad')))
+            print('GRADS   {:2.4f}     {:2.4f}'.format(sender.last('grad'), recver.last('grad')))
             print('')
 
     print('Game Over')
@@ -68,12 +68,10 @@ def plot(x, sender, recver, env, savedir):
     plt.plot(x, running_mean(avg_reward, 100),
              'b', label='avg reward')
 
-    target_std = env.observation_space.n / (12**0.5)
-    bias_mid = env.bias_space.low + (env.bias_space.range / 2)
-    plt.plot(x, np.full_like(x, env.dist_to_reward(target_std)),
-             'r', label='nocomm baseline')
-    plt.plot(x, np.full_like(x, env.dist_to_reward(bias_mid)),
-             'y', label='midbias baseline')
+    target_std_loss = env.observation_space.n / (12**0.5)
+    bias_nash_loss = env.bias_space.low + (env.bias_space.range / 2)
+    plt.plot(x, np.full_like(x, env._reward(target_std_loss)), 'r', label='nocomm baseline')
+    plt.plot(x, np.full_like(x, env._reward(bias_nash_loss)), 'y', label='midbias baseline')
     plt.legend()
     plt.show()
     if savedir:

@@ -9,6 +9,10 @@ from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
 
 
+def total_grad_norm(parameters):
+    return sum([x.grad.norm(2).item()**2 for x in parameters])**0.5
+
+
 def discount_return(rewards, gamma):
     R = 0
     discounted = []
@@ -26,14 +30,19 @@ class Policy(object):
         self.logger = {
             'ep_reward': [],
             'round_reward': [],
+            'grad': [],
+            'loss': [],
         }
 
     def reset(self):
         del self.rewards[:]
 
     def last(self, metric):
-        values = self.logger.get(metric, torch.zeros(1))
-        return values[-1].item()
+        values = self.logger.get(metric, None)
+        if values:
+            return values[-1]
+        else:
+            return 0.
 
     def log_reward(self):
         rewards = torch.cat(self.rewards, dim=1)
@@ -151,29 +160,33 @@ class DeterministicGradient(Policy):
         super().__init__(**kwargs)
         self.n = n
         self.policy = nn.Sequential(
-            nn.Linear(3,1),
+            nn.Linear(1,10),
+            nn.Linear(10,1),
             nn.Sigmoid()
         )
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
 
     def action(self, state):
-        input_ = torch.cat(state, dim=1)
-        action = 1 + self.policy(input_) * (self.n - 1)
+        # input_ = torch.cat(state, dim=1)
+        input_ = state[0]
+        action = self.policy(input_) * self.n
 
         return action
 
     def update(self):
         retain_graph = (self.mode == 0)
-        loss = -torch.mean(torch.cat(self.rewards, dim=1))
+        loss = -torch.stack(self.rewards).mean()
+        self.logger['loss'].append(loss.item())
 
         self.optimizer.zero_grad()
         loss.backward(retain_graph=retain_graph)
+        self.logger['grad'].append(total_grad_norm(self.policy.parameters()))
         self.optimizer.step()
 
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, n, lr, gamma, std, mode):
+    def __init__(self, n, lr, gamma, std, ent_reg, mode):
         super().__init__(mode)
         self.n = n
         self.gamma = gamma
@@ -182,12 +195,9 @@ class PolicyGradient(Policy):
             nn.Sigmoid())
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
         self.std = std
+        self.ent_reg = ent_reg
 
         self.log_probs = []
-        self.logger.update({
-            'grad': [],
-            'loss': [],
-        })
 
     def reset(self):
         super().reset()
@@ -210,14 +220,14 @@ class PolicyGradient(Policy):
         disc_returns = discount_return(self.rewards, self.gamma)
         returns = torch.cat(disc_returns, dim=1)
         logprobs = torch.cat(self.log_probs, dim=1)
+        entropy = (logprobs * torch.exp(logprobs)).sum()
 
-        loss = -(returns * logprobs).mean()
-        __import__('pdb').set_trace()
-        self.logger['loss'].append(loss.detach())
+        loss = -(returns * logprobs).mean() - self.ent_reg * entropy
+        self.logger['loss'].append(loss.item())
 
         self.optimizer.zero_grad()
         loss.backward()
-        self.logger['grad'].append(torch.stack([x.grad.mean() for x in self.policy.parameters()]).mean().detach())
+        self.logger['grad'].append(total_grad_norm(self.policy.parameters()))
         self.optimizer.step()
 
 
