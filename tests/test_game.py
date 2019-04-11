@@ -76,7 +76,7 @@ class TestReward(unittest.TestCase):
         pred = target + self.isr.num_targets // 2
         reward = self.isr._reward(pred, target)
 
-        self.assertEqual(reward, -1.)
+        self.assertEqual(reward, 0.)
 
     def test_max(self):
         target = torch.tensor(40.)

@@ -59,7 +59,7 @@ class IteratedSenderRecver(gym.Env):
             target = torch.tensor(0.)
         norm_dist = (pred - target) / self.num_targets
         radian_dist = 2*math.pi*norm_dist
-        return torch.cos(radian_dist)
+        return 0.5*(1 + torch.cos(radian_dist))
 
     def reset(self):
         self.round = 0

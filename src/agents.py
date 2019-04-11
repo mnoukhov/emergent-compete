@@ -160,8 +160,7 @@ class DeterministicGradient(Policy):
         super().__init__(**kwargs)
         self.n = n
         self.policy = nn.Sequential(
-            nn.Linear(1,10),
-            nn.Linear(10,1),
+            nn.Linear(1,1),
             nn.Sigmoid()
         )
         self.optimizer = Adam(self.policy.parameters(), lr=lr)

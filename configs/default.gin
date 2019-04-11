@@ -1,9 +1,9 @@
 # Main
 train.Sender = @UniformBias
-train.Recver = @PolicyGradient
+train.Recver = @DeterministicGradient
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
-train.render = None
+train.render = 1000
 train.log = 1000
 
 plot.savedir = None
@@ -11,8 +11,8 @@ plot.savedir = None
 # Game
 IteratedSenderRecver.batch_size = 64
 IteratedSenderRecver.num_rounds = 5
-IteratedSenderRecver.num_targets = 100
-IteratedSenderRecver.max_bias = 15
+IteratedSenderRecver.num_targets = 36
+IteratedSenderRecver.max_bias = 5
 IteratedSenderRecver.min_bias = 0
 
 # Agents
@@ -28,13 +28,14 @@ IteratedSenderRecver.min_bias = 0
 #OneShotQNet.decay = 1e-4
 #OneShotQNet.epsilon = 0.05
 
-PolicyGradient.lr = 1e-4
+PolicyGradient.lr = 1e-3
 PolicyGradient.gamma = 0.99
 PolicyGradient.std = 5
+PolicyGradient.ent_reg = 0.1
 
 UniformBias.bias = 0
 
-#DeterministicGradient.lr = 1e-4
+DeterministicGradient.lr = 1e-3
 
 #sender/DeterministicGradient.mode = 0
-#recver/DeterministicGradient.mode = 1
+#recver/DeterministicGradient.mode = 2

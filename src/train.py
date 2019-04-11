@@ -52,7 +52,6 @@ def train(Sender, Recver, env, episodes, render, log):
     print('Game Over')
     x = list(range(episodes))
     plot(x, sender, recver, env)
-    print(gin.operative_config_str())
 
 
 @gin.configurable
@@ -65,13 +64,13 @@ def plot(x, sender, recver, env, savedir):
     rlogs = np.array(recver.logger['ep_reward'])
     avg_reward = (rlogs + slogs) / 2
     recv_advantage = rlogs - slogs
-    plt.plot(x, running_mean(avg_reward, 100),
-             'b', label='avg reward')
+    plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
 
     target_std_loss = env.observation_space.n / (12**0.5)
     bias_nash_loss = env.bias_space.low + (env.bias_space.range / 2)
-    plt.plot(x, np.full_like(x, env._reward(target_std_loss)), 'r', label='nocomm baseline')
-    plt.plot(x, np.full_like(x, env._reward(bias_nash_loss)), 'y', label='midbias baseline')
+    __import__('pdb').set_trace()
+    plt.plot(x, np.full_like(x, env._reward(target_std_loss), dtype=np.float), 'r', label='nocomm baseline')
+    plt.plot(x, np.full_like(x, env._reward(bias_nash_loss), dtype=np.float), 'y', label='midbias baseline')
     plt.legend()
     plt.show()
     if savedir:
@@ -84,17 +83,21 @@ def plot(x, sender, recver, env, savedir):
     if savedir:
         plt.savefig('{}/rewards.png'.format(savedir))
 
-    sround = np.array(sender.logger['round_reward'])
-    rround = np.array(recver.logger['round_reward'])
-    avg_round = (sround + rround) / 2
-    for r in range(env.num_rounds):
-        plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
-        # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
-        # plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
-    plt.legend()
-    plt.show()
+    print(gin.operative_config_str())
     if savedir:
-        plt.savefig('{}/round_rewards.png'.format(savedir))
+        with open(f'{savedir}/config.gin','w') as f:
+            f.write(gin.operative_config_str())
+    # sround = np.array(sender.logger['round_reward'])
+    # rround = np.array(recver.logger['round_reward'])
+    # avg_round = (sround + rround) / 2
+    # for r in range(env.num_rounds):
+        # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
+        # # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
+        # # plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
+    # plt.legend()
+    # plt.show()
+    # if savedir:
+        # plt.savefig('{}/round_rewards.png'.format(savedir))
 
 
 def running_mean(x, N=100):
