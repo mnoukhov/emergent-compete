@@ -68,7 +68,6 @@ def plot(x, sender, recver, env, savedir):
 
     target_std_loss = env.observation_space.n / (12**0.5)
     bias_nash_loss = env.bias_space.low + (env.bias_space.range / 2)
-    __import__('pdb').set_trace()
     plt.plot(x, np.full_like(x, env._reward(target_std_loss), dtype=np.float), 'r', label='nocomm baseline')
     plt.plot(x, np.full_like(x, env._reward(bias_nash_loss), dtype=np.float), 'y', label='midbias baseline')
     plt.legend()
