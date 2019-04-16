@@ -33,7 +33,7 @@ PolicyGradient.gamma = 0.99
 PolicyGradient.std = 5
 PolicyGradient.ent_reg = 0.1
 
-UniformBias.bias = 0
+UniformBias.bias = 5
 
 DeterministicGradient.lr = 1e-4
 

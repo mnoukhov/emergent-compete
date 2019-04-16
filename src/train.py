@@ -65,16 +65,29 @@ def plot(x, sender, recver, env, savedir):
     avg_reward = (rlogs + slogs) / 2
     recv_advantage = rlogs - slogs
     plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
+    # plt.plot(x, running_mean(slogs, 100), 'b', label='sender')
+    # plt.plot(x, running_mean(rlogs, 100), 'r', label='recver')
 
     target_std_loss = env.observation_space.n / (12**0.5)
     bias_nash_loss = env.bias_space.low + (env.bias_space.range / 2)
-    plt.plot(x, np.full_like(x, env._reward(target_std_loss), dtype=np.float), 'r', label='nocomm baseline')
-    plt.plot(x, np.full_like(x, env._reward(bias_nash_loss), dtype=np.float), 'y', label='midbias baseline')
+    plt.plot(x, np.full_like(x, env._reward(target_std_loss), dtype=np.float), 'y', label='nocomm baseline')
+    plt.plot(x, np.full_like(x, env._reward(bias_nash_loss), dtype=np.float), 'g', label='midbias baseline')
     plt.legend()
     if savedir:
-        plt.savefig(f'{savedir}/avg_reward.png')
-    else:
-        plt.show()
+        plt.savefig(f'{savedir}/rewards.png')
+    plt.show()
+
+    sround = np.array(sender.logger['round_reward'])
+    rround = np.array(recver.logger['round_reward'])
+    avg_round = (sround + rround) / 2
+    for r in range(env.num_rounds):
+        plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
+        # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
+        # plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
+    plt.legend()
+    if savedir:
+        plt.savefig('{}/round_rewards.png'.format(savedir))
+    plt.show()
 
     for name, logs in recver.logger.items():
         if 'grad' in name:
@@ -82,32 +95,13 @@ def plot(x, sender, recver, env, savedir):
     plt.legend()
     if savedir:
         plt.savefig(f'{savedir}/grads.png')
-    else:
-        plt.show()
-    # plt.plot(x, running_mean(slogs, 100), 'r', label='sender')
-    # plt.plot(x, running_mean(rlogs, 100), 'b', label='recver')
-    # plt.legend()
-    # plt.show()
-    # if savedir:
-        # plt.savefig(f'{savedir}/rewards.png')
-    # else:
-        # plt.show()
+    plt.show()
+
 
     print(gin.operative_config_str())
     if savedir:
         with open(f'{savedir}/config.gin','w') as f:
             f.write(gin.operative_config_str())
-    # sround = np.array(sender.logger['round_reward'])
-    # rround = np.array(recver.logger['round_reward'])
-    # avg_round = (sround + rround) / 2
-    # for r in range(env.num_rounds):
-        # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
-        # # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
-        # # plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
-    # plt.legend()
-    # plt.show()
-    # if savedir:
-        # plt.savefig('{}/round_rewards.png'.format(savedir))
 
 
 def running_mean(x, N=100):

@@ -75,7 +75,7 @@ class UniformBias(Policy):
     def action(self, state):
         target, _, _ = state
         message = target + self.bias.sample()
-        return torch.clamp(message, 1, self.n)
+        return message % self.n
 
 
 @gin.configurable
@@ -144,37 +144,40 @@ class DeterministicGradient(Policy):
     def __init__(self, n, lr, **kwargs):
         super().__init__(**kwargs)
         self.n = n
-        self.policy = nn.Linear(1,1)
-        init.uniform_(self.policy.weight, 0, 1)
-        init.uniform_(self.policy.bias, 0, 1)
+        self.policy = nn.Linear(3,1)
+        init.uniform_(self.policy.weight, 1/9, 1/3)
+        init.uniform_(self.policy.bias, 1/9, 1/3)
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
 
         self.logger.update({
             'loss': [],
-            'grad': [],
-            'action_grad': [],
+            # 'grad': [],
+            'preact grad': [],
+            'act grad': []
         })
         self.grad = []
-        self.grad_action = []
+        self.act_grad = []
+        self.preact_grad = []
         self.policy.weight.register_hook(self.grad.append)
 
 
     def reset(self):
         super().reset()
         del self.grad[:]
-        del self.grad_action[:]
+        del self.act_grad[:]
+        del self.preact_grad[:]
 
     def action(self, state):
-        # input_ = torch.cat(state, dim=1)
-        input_ = state[0]
+        input_ = torch.cat(state, dim=1)
+        # input_ = state[0]
         action = self.policy(input_)
-        action = action.clamp(0, self.n)
-        action.register_hook(self.grad_action.append)
+        action.register_hook(self.preact_grad.append)
+        clamped = torch.clamp(action, 0, self.n)
+        clamped.register_hook(self.act_grad.append)
 
-        return action
+        return clamped
 
     def update(self):
-        retain_graph = (self.mode == 0)
         loss = -torch.stack(self.rewards).mean()
         self.logger['loss'].append(loss.item())
 
@@ -184,8 +187,9 @@ class DeterministicGradient(Policy):
 
     def update_log(self):
         super().update_log()
-        self.logger['grad'].append(torch.stack(self.grad).norm(2).item())
-        self.logger['action_grad'].append(torch.stack(self.grad_action).norm(2).item())
+        # self.logger['grad'].append(torch.stack(self.grad).norm(2).item())
+        self.logger['act grad'].append(torch.stack(self.act_grad).norm(2).item())
+        self.logger['preact grad'].append(torch.stack(self.preact_grad).norm(2).item())
 
 
 @gin.configurable
