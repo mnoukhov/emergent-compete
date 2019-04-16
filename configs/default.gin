@@ -11,8 +11,8 @@ plot.savedir = None
 # Game
 IteratedSenderRecver.batch_size = 64
 IteratedSenderRecver.num_rounds = 5
-IteratedSenderRecver.num_targets = 36
-IteratedSenderRecver.max_bias = 5
+IteratedSenderRecver.num_targets = 100
+IteratedSenderRecver.max_bias = 1
 IteratedSenderRecver.min_bias = 0
 
 # Agents
@@ -35,7 +35,7 @@ PolicyGradient.ent_reg = 0.1
 
 UniformBias.bias = 0
 
-DeterministicGradient.lr = 1e-3
+DeterministicGradient.lr = 1e-4
 
 #sender/DeterministicGradient.mode = 0
 #recver/DeterministicGradient.mode = 2

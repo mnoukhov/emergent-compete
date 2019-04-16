@@ -36,17 +36,17 @@ def train(Sender, Recver, env, episodes, render, log):
             if render and e % render == 0:
                 env.render(message=message[0].item())
 
-        sender.log_reward()
-        recver.log_reward()
-
         sender.update()
         recver.update()
+        sender.update_log()
+        recver.update_log()
 
         if log and e % log == 0:
             print(f'EPISODE {e}')
             print('REWRD   {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
             print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
-            print('GRADS   {:2.4f}     {:2.4f}'.format(sender.last('grad'), recver.last('grad')))
+            print('AGRADS  {:2.4f}     {:2.4f}'.format(sender.last('action_grad'), recver.last('action_grad')))
+            print('PGRADS  {:2.4f}     {:2.4f}'.format(sender.last('grad'), recver.last('grad')))
             print('')
 
     print('Game Over')
@@ -57,7 +57,7 @@ def train(Sender, Recver, env, episodes, render, log):
 @gin.configurable
 def plot(x, sender, recver, env, savedir):
     if savedir is not None:
-        savedir = os.path.join('experiments', savedir)
+        savedir = os.path.join('results', savedir)
         os.makedirs(savedir, exist_ok=True)
 
     slogs = np.array(sender.logger['ep_reward'])
@@ -71,16 +71,27 @@ def plot(x, sender, recver, env, savedir):
     plt.plot(x, np.full_like(x, env._reward(target_std_loss), dtype=np.float), 'r', label='nocomm baseline')
     plt.plot(x, np.full_like(x, env._reward(bias_nash_loss), dtype=np.float), 'y', label='midbias baseline')
     plt.legend()
-    plt.show()
     if savedir:
-        plt.savefig('{}/advantage.png'.format(savedir))
+        plt.savefig(f'{savedir}/avg_reward.png')
+    else:
+        plt.show()
 
-    plt.plot(x, running_mean(slogs, 100), 'r', label='sender')
-    plt.plot(x, running_mean(rlogs, 100), 'b', label='recver')
+    for name, logs in recver.logger.items():
+        if 'grad' in name:
+            plt.plot(x, logs, label=name)
     plt.legend()
-    plt.show()
     if savedir:
-        plt.savefig('{}/rewards.png'.format(savedir))
+        plt.savefig(f'{savedir}/grads.png')
+    else:
+        plt.show()
+    # plt.plot(x, running_mean(slogs, 100), 'r', label='sender')
+    # plt.plot(x, running_mean(rlogs, 100), 'b', label='recver')
+    # plt.legend()
+    # plt.show()
+    # if savedir:
+        # plt.savefig(f'{savedir}/rewards.png')
+    # else:
+        # plt.show()
 
     print(gin.operative_config_str())
     if savedir:

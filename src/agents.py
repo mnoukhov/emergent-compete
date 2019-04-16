@@ -4,23 +4,10 @@ import random
 import gin
 import torch
 import torch.nn as nn
+from torch.nn import init
 from torch.optim import Adam, SGD
 from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
-
-
-def total_grad_norm(parameters):
-    return sum([x.grad.norm(2).item()**2 for x in parameters])**0.5
-
-
-def discount_return(rewards, gamma):
-    R = 0
-    discounted = []
-    for r in reversed(rewards):
-        R = r + gamma * R
-        discounted.insert(0, R)
-
-    return discounted
 
 
 class Policy(object):
@@ -30,8 +17,6 @@ class Policy(object):
         self.logger = {
             'ep_reward': [],
             'round_reward': [],
-            'grad': [],
-            'loss': [],
         }
 
     def reset(self):
@@ -44,7 +29,7 @@ class Policy(object):
         else:
             return 0.
 
-    def log_reward(self):
+    def update_log(self):
         rewards = torch.cat(self.rewards, dim=1)
         round_avg = rewards.mean(dim=0).tolist()
         avg = rewards.mean()
@@ -159,16 +144,32 @@ class DeterministicGradient(Policy):
     def __init__(self, n, lr, **kwargs):
         super().__init__(**kwargs)
         self.n = n
-        self.policy = nn.Sequential(
-            nn.Linear(1,1),
-            nn.Sigmoid()
-        )
+        self.policy = nn.Linear(1,1)
+        init.uniform_(self.policy.weight, 0, 1)
+        init.uniform_(self.policy.bias, 0, 1)
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
+
+        self.logger.update({
+            'loss': [],
+            'grad': [],
+            'action_grad': [],
+        })
+        self.grad = []
+        self.grad_action = []
+        self.policy.weight.register_hook(self.grad.append)
+
+
+    def reset(self):
+        super().reset()
+        del self.grad[:]
+        del self.grad_action[:]
 
     def action(self, state):
         # input_ = torch.cat(state, dim=1)
         input_ = state[0]
-        action = self.policy(input_) * self.n
+        action = self.policy(input_)
+        action = action.clamp(0, self.n)
+        action.register_hook(self.grad_action.append)
 
         return action
 
@@ -178,9 +179,13 @@ class DeterministicGradient(Policy):
         self.logger['loss'].append(loss.item())
 
         self.optimizer.zero_grad()
-        loss.backward(retain_graph=retain_graph)
-        self.logger['grad'].append(total_grad_norm(self.policy.parameters()))
+        loss.backward()
         self.optimizer.step()
+
+    def update_log(self):
+        super().update_log()
+        self.logger['grad'].append(torch.stack(self.grad).norm(2).item())
+        self.logger['action_grad'].append(torch.stack(self.grad_action).norm(2).item())
 
 
 @gin.configurable
@@ -189,14 +194,20 @@ class PolicyGradient(Policy):
         super().__init__(mode)
         self.n = n
         self.gamma = gamma
-        self.policy = nn.Sequential(
-            nn.Linear(1,1),
-            nn.Sigmoid())
+        self.policy = nn.Linear(1,1)
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
         self.std = std
         self.ent_reg = ent_reg
-
         self.log_probs = []
+
+        self.logger.update({
+            'loss': [],
+            'grad': [],
+            'action_grad': [],
+        })
+        self.grad = []
+        self.grad_action = []
+        self.policy.weight.register_hook(self.grad.append)
 
     def reset(self):
         super().reset()
@@ -213,6 +224,7 @@ class PolicyGradient(Policy):
         self.log_probs.append(dist.log_prob(sample))
 
         action = sample.round() % self.n
+
         return action
 
     def update(self):

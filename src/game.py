@@ -81,8 +81,8 @@ class IteratedSenderRecver(gym.Env):
             'send_target': self.send_target[0].item(),
             'recv_target': self.recv_target[0].item(),
             'guess': action[0].item(),
-            'send_dist': torch.abs(action[0] - self.send_target[0]).item(),
-            'recv_dist': torch.abs(action[0] - self.recv_target[0]).item(),
+            'send_reward': rewards[0][0].item(),
+            'recv_reward': rewards[1][0].item(),
         }
 
         self.recv_target = self._generate_target()
@@ -98,6 +98,6 @@ class IteratedSenderRecver(gym.Env):
         print('message {: <6.2f}   guess {:<5.2f}'.format(
             message,
             self.round_info['guess']))
-        print('dists   {: <5.2f}          {:<4.2f}'.format(
-            self.round_info['send_dist'],
-            self.round_info['recv_dist']))
+        print('rewards   {: <5.2f}          {:<4.2f}'.format(
+            self.round_info['send_reward'],
+            self.round_info['recv_reward']))
