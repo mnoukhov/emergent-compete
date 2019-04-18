@@ -12,8 +12,8 @@ import game
 
 @gin.configurable
 def train(Sender, Recver, env, episodes, render, log):
-    sender = Sender(mode=0, n=env.observation_space.n)
-    recver = Recver(mode=1, n=env.action_space.n)
+    sender = Sender(mode=0, num_actions=env.observation_space.n)
+    recver = Recver(mode=1, num_actions=env.action_space.n)
 
     for e in range(episodes):
         target = env.reset()
@@ -38,15 +38,13 @@ def train(Sender, Recver, env, episodes, render, log):
 
         sender.update()
         recver.update()
-        sender.update_log()
-        recver.update_log()
 
         if log and e % log == 0:
             print(f'EPISODE {e}')
             print('REWRD   {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
             print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
-            print('AGRADS  {:2.4f}     {:2.4f}'.format(sender.last('action_grad'), recver.last('action_grad')))
-            print('PGRADS  {:2.4f}     {:2.4f}'.format(sender.last('grad'), recver.last('grad')))
+            # print('AGRADS  {:2.4f}     {:2.4f}'.format(sender.last('action_grad'), recver.last('action_grad')))
+            # print('PGRADS  {:2.4f}     {:2.4f}'.format(sender.last('grad'), recver.last('grad')))
             print('')
 
     print('Game Over')

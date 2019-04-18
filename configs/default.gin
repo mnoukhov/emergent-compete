@@ -1,6 +1,6 @@
 # Main
 train.Sender = @UniformBias
-train.Recver = @DeterministicGradient
+train.Recver = @A2C
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
 train.render = 1000
@@ -16,6 +16,10 @@ IteratedSenderRecver.max_bias = 1
 IteratedSenderRecver.min_bias = 0
 
 # Agents
+UniformBias.bias = 1
+
+#DeterministicGradient.lr = 1e-4
+
 #NaiveQNet.n = %n
 #NaiveQNet.gamma = 0.96
 #NaiveQNet.alpha = 1e-2
@@ -28,14 +32,13 @@ IteratedSenderRecver.min_bias = 0
 #OneShotQNet.decay = 1e-4
 #OneShotQNet.epsilon = 0.05
 
-PolicyGradient.lr = 1e-3
-PolicyGradient.gamma = 0.99
-PolicyGradient.std = 5
-PolicyGradient.ent_reg = 0.1
+#PolicyGradient.lr = 1e-3
+#PolicyGradient.gamma = 1.00
+#PolicyGradient.std = 5
+#PolicyGradient.ent_reg = 0.1
+#PolicyGradient.min_std = 2.5
 
-UniformBias.bias = 5
-
-DeterministicGradient.lr = 1e-4
-
-#sender/DeterministicGradient.mode = 0
-#recver/DeterministicGradient.mode = 2
+A2C.gamma = 1.00
+A2C.lr = 1e-3
+A2C.ent_reg = 0.1
+A2C.min_std = 2.5

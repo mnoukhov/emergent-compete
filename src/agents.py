@@ -9,18 +9,19 @@ from torch.optim import Adam, SGD
 from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
 
+from utils import discount_return
 
-class Policy(object):
-    def __init__(self, mode, *args, **kwargs):
+
+class Policy(nn.Module):
+    def __init__(self, mode, gamma=1.0):
+        super().__init__()
         self.mode = mode
+        self.gamma = gamma
         self.rewards = []
         self.logger = {
             'ep_reward': [],
             'round_reward': [],
         }
-
-    def reset(self):
-        del self.rewards[:]
 
     def last(self, metric):
         values = self.logger.get(metric, None)
@@ -29,19 +30,16 @@ class Policy(object):
         else:
             return 0.
 
-    def update_log(self):
-        rewards = torch.cat(self.rewards, dim=1)
-        round_avg = rewards.mean(dim=0).tolist()
-        avg = rewards.mean()
-        self.logger['ep_reward'].append(avg)
-        self.logger['round_reward'].append(round_avg)
+    def reset(self):
+        del self.rewards[:]
 
-    @abstractmethod
     def action(self, state):
         pass
 
     def update(self, *args, **kwargs):
-        pass
+        rewards = torch.cat(self.rewards, dim=1)
+        self.logger['ep_reward'].append(rewards.mean().item())
+        self.logger['round_reward'].append(rewards.mean(dim=0).tolist())
 
 
 @gin.configurable
@@ -67,15 +65,15 @@ class NoComm(Policy):
 
 @gin.configurable
 class UniformBias(Policy):
-    def __init__(self, n, bias, **kwargs):
+    def __init__(self, num_actions, bias, **kwargs):
         super().__init__(**kwargs)
         self.bias = Uniform(0, bias)
-        self.n = n
+        self.num_actions = num_actions
 
     def action(self, state):
         target, _, _ = state
         message = target + self.bias.sample()
-        return message % self.n
+        return message % self.num_actions
 
 
 @gin.configurable
@@ -178,6 +176,7 @@ class DeterministicGradient(Policy):
         return clamped
 
     def update(self):
+        super().update()
         loss = -torch.stack(self.rewards).mean()
         self.logger['loss'].append(loss.item())
 
@@ -185,87 +184,137 @@ class DeterministicGradient(Policy):
         loss.backward()
         self.optimizer.step()
 
-    def update_log(self):
-        super().update_log()
-        # self.logger['grad'].append(torch.stack(self.grad).norm(2).item())
         self.logger['act grad'].append(torch.stack(self.act_grad).norm(2).item())
         self.logger['preact grad'].append(torch.stack(self.preact_grad).norm(2).item())
+        # self.logger['grad'].append(torch.stack(self.grad).norm(2).item())
 
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, n, lr, gamma, std, ent_reg, mode):
+    def __init__(self, num_actions, lr, gamma, std, ent_reg, min_std, mode):
         super().__init__(mode)
-        self.n = n
+        self.num_actions = num_actions
         self.gamma = gamma
-        self.policy = nn.Linear(1,1)
+        self.min_std = torch.tensor(min_std)
+        self.policy = nn.Linear(3,2)
+        init.uniform_(self.policy.weight, 1/9, 1)
+        init.uniform_(self.policy.bias, 1/9, 1)
+
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
-        self.std = std
         self.ent_reg = ent_reg
         self.log_probs = []
 
         self.logger.update({
             'loss': [],
-            'grad': [],
-            'action_grad': [],
+            'weight grad': [],
         })
-        self.grad = []
-        self.grad_action = []
-        self.policy.weight.register_hook(self.grad.append)
+        self.weight_grad = []
+        self.policy.weight.register_hook(self.weight_grad.append)
+        # self.std = std
 
     def reset(self):
         super().reset()
         del self.log_probs[:]
+        del self.weight_grad[:]
+        self.entropy = 0
 
     def action(self, state):
-        # input_ = torch.cat(state, dim=1)
-        input_ = state[0]
-        out = self.policy(input_) * self.n
+        input_ = torch.cat(state, dim=1)
+        out = self.policy(input_)
+        mean, std = out.chunk(2, dim=1)
 
-        mean = out
-        dist = Normal(mean, self.std)
+        mean = torch.clamp(mean, 0, self.num_actions)
+        std = torch.max(std, self.min_std)
+        dist = Normal(mean, std)
         sample = dist.sample()
         self.log_probs.append(dist.log_prob(sample))
 
-        action = sample.round() % self.n
-
-        return action
+        return sample.round() % self.num_actions
 
     def update(self):
+        super().update()
         disc_returns = discount_return(self.rewards, self.gamma)
         returns = torch.cat(disc_returns, dim=1)
         logprobs = torch.cat(self.log_probs, dim=1)
-        entropy = (logprobs * torch.exp(logprobs)).sum()
 
-        loss = -(returns * logprobs).mean() - self.ent_reg * entropy
+        loss = -(returns * logprobs).mean()
+        # - self.ent_reg * entropy
         self.logger['loss'].append(loss.item())
 
         self.optimizer.zero_grad()
         loss.backward()
-        self.logger['grad'].append(total_grad_norm(self.policy.parameters()))
         self.optimizer.step()
+
+        self.logger['weight grad'].append(torch.stack(self.weight_grad).norm(2).item())
 
 
 @gin.configurable
 class A2C(Policy):
-    def __init__(self, n, gamma, alpha, decay, epsilon):
-        self.n = n
+    def __init__(self, num_actions, gamma, lr, min_std, ent_reg, mode):
+        super().__init__(mode)
+        self.num_actions = num_actions
         self.gamma = gamma
-        self.alpha = alpha
-        self.decay = decay
-        self.epsilon = epsilon
-        self.policy = nn.Sequential(
-            nn.Linear(1,1),
-            nn.Sigmoid())
-        self.V = nn.Sequential(
-            nn.Linear(3,1),
-            nn.Sigmoid())
-        self.Q = nn.Sequential(
-            nn.Linear(3,1),
-            nn.Sigmoid())
+        self.min_std = torch.tensor(min_std)
+        self.ent_reg = ent_reg
 
-    def step(self, state):
-        input_ = torch.stack(state, dim=0)
-        logits
-        logits = self.Q[state_idx]
-        return self._epsilon_greedy(logits)
+        self.actor = nn.Linear(1, 2)
+        self.critic = nn.Linear(1, 1)
+        init.uniform_(self.actor.weight, 1/9, 1)
+        init.uniform_(self.actor.bias, 1/9, 1)
+        init.uniform_(self.critic.weight, 1/9, 1)
+        init.uniform_(self.critic.bias, 1/9, 1)
+
+        self.optimizer = Adam(self.parameters(), lr=lr)
+
+        self.values = []
+        self.log_probs = []
+        self.entropy = 0
+        self.logger.update({
+            'entropy': [],
+            'loss': [],
+        })
+
+    def reset(self):
+        super().reset()
+        del self.values[:]
+        del self.log_probs[:]
+        self.entropy = 0
+
+    def action(self, state):
+        state = state[0]
+        # state = torch.stack(state, dim=0)
+        mean, std = self.actor(state).chunk(2, dim=1)
+        mean = torch.clamp(mean, 0, self.num_actions)
+        std = torch.max(std, self.min_std)
+        dist = Normal(mean, std)
+        sample = dist.sample()
+
+        value = self.critic(state)
+
+        self.entropy += dist.entropy()
+        self.log_probs.append(dist.log_prob(sample))
+        self.values.append(value)
+
+        return sample.round() % self.num_actions
+
+
+    def update(self):
+        super().update()
+        returns = torch.cat(discount_return(self.rewards, self.gamma), dim=1)
+        logprobs = torch.cat(self.log_probs, dim=1)
+        values = torch.cat(self.values, dim=1)
+        entropy = self.entropy.mean()
+
+        adv = returns - values
+        actor_loss = (-logprobs * adv).mean()
+        critic_loss = (0.5 * adv**2).mean()
+        loss = actor_loss + critic_loss
+        # \+ self.ent_reg * entropy
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        self.logger['entropy'].append(entropy.item())
+        self.logger['loss'].append(loss.item())
+
