@@ -71,7 +71,7 @@ class UniformBias(Policy):
         self.num_actions = num_actions
 
     def action(self, state):
-        target, _, _ = state
+        target = state[0]
         message = target + self.bias.sample()
         return message % self.num_actions
 
@@ -139,9 +139,9 @@ class OneShotQNet(NaiveQNet):
 
 @gin.configurable
 class DeterministicGradient(Policy):
-    def __init__(self, n, lr, **kwargs):
-        super().__init__(**kwargs)
-        self.n = n
+    def __init__(self, mode, num_actions, lr):
+        super().__init__(mode)
+        self.num_actions = num_actions
         self.policy = nn.Linear(3,1)
         init.uniform_(self.policy.weight, 1/9, 1/3)
         init.uniform_(self.policy.bias, 1/9, 1/3)
@@ -149,7 +149,7 @@ class DeterministicGradient(Policy):
 
         self.logger.update({
             'loss': [],
-            # 'grad': [],
+            '20': [],
             'preact grad': [],
             'act grad': []
         })
@@ -157,7 +157,6 @@ class DeterministicGradient(Policy):
         self.act_grad = []
         self.preact_grad = []
         self.policy.weight.register_hook(self.grad.append)
-
 
     def reset(self):
         super().reset()
@@ -167,10 +166,9 @@ class DeterministicGradient(Policy):
 
     def action(self, state):
         input_ = torch.cat(state, dim=1)
-        # input_ = state[0]
         action = self.policy(input_)
         action.register_hook(self.preact_grad.append)
-        clamped = torch.clamp(action, 0, self.n)
+        clamped = torch.clamp(action, 0, self.num_actions)
         clamped.register_hook(self.act_grad.append)
 
         return clamped
@@ -186,12 +184,13 @@ class DeterministicGradient(Policy):
 
         self.logger['act grad'].append(torch.stack(self.act_grad).norm(2).item())
         self.logger['preact grad'].append(torch.stack(self.preact_grad).norm(2).item())
+        self.logger['20'].append(self.policy(torch.tensor([20., 0., 0.]))[0].item())
         # self.logger['grad'].append(torch.stack(self.grad).norm(2).item())
 
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, num_actions, lr, gamma, std, ent_reg, min_std, mode):
+    def __init__(self, num_actions, lr, gamma, ent_reg, min_std, mode):
         super().__init__(mode)
         self.num_actions = num_actions
         self.gamma = gamma
@@ -200,17 +199,20 @@ class PolicyGradient(Policy):
         init.uniform_(self.policy.weight, 1/9, 1)
         init.uniform_(self.policy.bias, 1/9, 1)
 
-        self.optimizer = Adam(self.policy.parameters(), lr=lr)
+        self.optimizer = Adam(self.parameters(), lr=lr)
         self.ent_reg = ent_reg
-        self.log_probs = []
 
         self.logger.update({
             'loss': [],
-            'weight grad': [],
+            'grad': [],
+            '20': [],
+            'entropy': [],
         })
+        self.log_probs = []
         self.weight_grad = []
+        self.entropy = 0
         self.policy.weight.register_hook(self.weight_grad.append)
-        # self.std = std
+
 
     def reset(self):
         super().reset()
@@ -219,33 +221,37 @@ class PolicyGradient(Policy):
         self.entropy = 0
 
     def action(self, state):
-        input_ = torch.cat(state, dim=1)
-        out = self.policy(input_)
+        state = torch.cat(state, dim=1)
+        out = self.policy(state)
         mean, std = out.chunk(2, dim=1)
 
         mean = torch.clamp(mean, 0, self.num_actions)
         std = torch.max(std, self.min_std)
         dist = Normal(mean, std)
         sample = dist.sample()
+
+        self.entropy += dist.entropy()
         self.log_probs.append(dist.log_prob(sample))
 
         return sample.round() % self.num_actions
 
     def update(self):
         super().update()
-        disc_returns = discount_return(self.rewards, self.gamma)
-        returns = torch.cat(disc_returns, dim=1)
-        logprobs = torch.cat(self.log_probs, dim=1)
+        out20 = self.policy(torch.tensor([20., 0., 0.]))[0]
 
-        loss = -(returns * logprobs).mean()
-        # - self.ent_reg * entropy
-        self.logger['loss'].append(loss.item())
+        returns = torch.cat(discount_return(self.rewards, self.gamma), dim=1)
+        logprobs = torch.cat(self.log_probs, dim=1)
+        entropy = torch.mean(self.entropy)
+        loss = -(returns * logprobs).mean() - self.ent_reg * entropy
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        self.logger['weight grad'].append(torch.stack(self.weight_grad).norm(2).item())
+        self.logger['loss'].append(loss.item())
+        self.logger['grad'].append(torch.stack(self.weight_grad).norm(2).item())
+        self.logger['entropy'].append(entropy.item())
+        self.logger['20'].append(out20.item())
 
 
 @gin.configurable
@@ -257,12 +263,12 @@ class A2C(Policy):
         self.min_std = torch.tensor(min_std)
         self.ent_reg = ent_reg
 
-        self.actor = nn.Linear(1, 2)
-        self.critic = nn.Linear(1, 1)
-        init.uniform_(self.actor.weight, 1/9, 1)
-        init.uniform_(self.actor.bias, 1/9, 1)
-        init.uniform_(self.critic.weight, 1/9, 1)
-        init.uniform_(self.critic.bias, 1/9, 1)
+        self.actor = nn.Linear(3, 2)
+        self.critic = nn.Linear(3, 1)
+        init.uniform_(self.actor.weight, 1/9, 1/3)
+        init.uniform_(self.actor.bias, 1/9, 1/3)
+        init.uniform_(self.critic.weight, 1/9, 1/3)
+        init.uniform_(self.critic.bias, 1/9, 1/3)
 
         self.optimizer = Adam(self.parameters(), lr=lr)
 
@@ -272,6 +278,7 @@ class A2C(Policy):
         self.logger.update({
             'entropy': [],
             'loss': [],
+            '20': []
         })
 
     def reset(self):
@@ -281,8 +288,8 @@ class A2C(Policy):
         self.entropy = 0
 
     def action(self, state):
-        state = state[0]
-        # state = torch.stack(state, dim=0)
+        # state = state[0]
+        state = torch.cat(state, dim=1)
         mean, std = self.actor(state).chunk(2, dim=1)
         mean = torch.clamp(mean, 0, self.num_actions)
         std = torch.max(std, self.min_std)
@@ -300,6 +307,8 @@ class A2C(Policy):
 
     def update(self):
         super().update()
+        out20 = self.actor(torch.tensor([20., 0., 0.]))[0]
+
         returns = torch.cat(discount_return(self.rewards, self.gamma), dim=1)
         logprobs = torch.cat(self.log_probs, dim=1)
         values = torch.cat(self.values, dim=1)
@@ -308,8 +317,7 @@ class A2C(Policy):
         adv = returns - values
         actor_loss = (-logprobs * adv).mean()
         critic_loss = (0.5 * adv**2).mean()
-        loss = actor_loss + critic_loss
-        # \+ self.ent_reg * entropy
+        loss = actor_loss + critic_loss + self.ent_reg * entropy
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -317,4 +325,5 @@ class A2C(Policy):
 
         self.logger['entropy'].append(entropy.item())
         self.logger['loss'].append(loss.item())
+        self.logger['20'].append(out20.item())
 

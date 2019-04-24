@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 
 def log_grad_norm(log_list):
@@ -23,5 +24,12 @@ def discount_return(rewards, gamma):
         discounted.insert(0, R)
 
     return discounted
+
+
+def running_mean(x, N=100):
+    cumsum = np.cumsum(np.insert(x, 0, 0))
+    afterN = (cumsum[N:] - cumsum[:-N]) / float(N)
+    beforeN = cumsum[1:N] / np.arange(1, N)
+    return np.concatenate([beforeN, afterN])
 
 

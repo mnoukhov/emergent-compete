@@ -8,10 +8,11 @@ import torch
 
 import agents
 import game
+from utils import running_mean
 
 
 @gin.configurable
-def train(Sender, Recver, env, episodes, render, log):
+def train(Sender, Recver, env, episodes, render, log, savedir):
     sender = Sender(mode=0, num_actions=env.observation_space.n)
     recver = Recver(mode=1, num_actions=env.action_space.n)
 
@@ -43,70 +44,83 @@ def train(Sender, Recver, env, episodes, render, log):
             print(f'EPISODE {e}')
             print('REWRD   {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
             print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
-            # print('AGRADS  {:2.4f}     {:2.4f}'.format(sender.last('action_grad'), recver.last('action_grad')))
-            # print('PGRADS  {:2.4f}     {:2.4f}'.format(sender.last('grad'), recver.last('grad')))
+            # print('PGRADS  {:2.4f}     {:2.4f}'.format(sender.last('preact grad'), recver.last('preact grad')))
+            # print('AGRADS  {:2.4f}     {:2.4f}'.format(sender.last('act grad'), recver.last('act grad')))
             print('')
 
     print('Game Over')
     x = list(range(episodes))
-    plot(x, sender, recver, env)
+    plot_and_save(x, sender, recver, env, savedir)
 
 
-@gin.configurable
-def plot(x, sender, recver, env, savedir):
+def plot_and_save(x, sender, recver, env, savedir):
     if savedir is not None:
         savedir = os.path.join('results', savedir)
         os.makedirs(savedir, exist_ok=True)
 
-    slogs = np.array(sender.logger['ep_reward'])
-    rlogs = np.array(recver.logger['ep_reward'])
-    avg_reward = (rlogs + slogs) / 2
-    recv_advantage = rlogs - slogs
-    plt.plot(x, running_mean(avg_reward, 100), 'b', label='avg reward')
-    # plt.plot(x, running_mean(slogs, 100), 'b', label='sender')
-    # plt.plot(x, running_mean(rlogs, 100), 'r', label='recver')
-
+    # REWARDS
+    srew = np.array(sender.logger['ep_reward'])
+    rrew = np.array(recver.logger['ep_reward'])
+    avg_rew = (rrew + srew) / 2
     target_std_loss = env.observation_space.n / (12**0.5)
-    bias_nash_loss = env.bias_space.low + (env.bias_space.range / 2)
-    plt.plot(x, np.full_like(x, env._reward(target_std_loss), dtype=np.float), 'y', label='nocomm baseline')
-    plt.plot(x, np.full_like(x, env._reward(bias_nash_loss), dtype=np.float), 'g', label='midbias baseline')
+    target_rew = np.full_like(x, env._reward(target_std_loss), dtype=np.float)
+    midbias_loss = env.bias_space.low + (env.bias_space.range / 2)
+    midbias_rew = np.full_like(x, env._reward(midbias_loss), dtype=np.float)
+    truebias_rew = env._reward(torch.stack(env.biases)).numpy()
+    plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
+    plt.plot(x, running_mean(srew, 100), label='sender')
+    plt.plot(x, running_mean(rrew, 100), label='recver')
+    plt.plot(x, target_rew, label='nocomm baseline')
+    plt.plot(x, midbias_rew, label='midbias baseline')
+    plt.plot(x, running_mean(truebias_rew), label='truebias baseline')
     plt.legend()
     if savedir:
         plt.savefig(f'{savedir}/rewards.png')
     plt.show()
 
+    # REWARD PER ROUND
     sround = np.array(sender.logger['round_reward'])
     rround = np.array(recver.logger['round_reward'])
     avg_round = (sround + rround) / 2
     for r in range(env.num_rounds):
-        plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
+        # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
         # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
-        # plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
+        plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
     plt.legend()
     if savedir:
-        plt.savefig('{}/round_rewards.png'.format(savedir))
+        plt.savefig(f'{savedir}/round.png')
     plt.show()
 
-    for name, logs in recver.logger.items():
-        if 'grad' in name:
-            plt.plot(x, logs, label=name)
+    # ABS DIFF AT ROUND 5
+    plt.plot(x, running_mean(env.send_diffs), label='sender')
+    plt.plot(x, running_mean(env.recv_diffs), label='recver')
+    plt.title('Absolute diff at Round 5')
     plt.legend()
     if savedir:
-        plt.savefig(f'{savedir}/grads.png')
+        plt.savefig(f'{savedir}/diff.png')
     plt.show()
+
+    # OUTPUT FOR 20
+    # plt.plot(x, sender.logger['20'], label='sender')
+    plt.plot(x, recver.logger['20'], label='recver')
+    plt.title('Output for Input=20')
+    plt.legend()
+    if savedir:
+        plt.savefig(f'{savedir}/20.png')
+    plt.show()
+
+    # ENTROPY
+    # plt.plot(x, recver.logger['entropy'], label='entropy')
+    # plt.legend()
+    # if savedir:
+        # plt.savefig(f'{savedir}/entropy.png')
+    # plt.show()
 
 
     print(gin.operative_config_str())
     if savedir:
         with open(f'{savedir}/config.gin','w') as f:
             f.write(gin.operative_config_str())
-
-
-def running_mean(x, N=100):
-    cumsum = np.cumsum(np.insert(x, 0, 0))
-    afterN = (cumsum[N:] - cumsum[:-N]) / float(N)
-    beforeN = cumsum[1:N] / np.arange(1, N)
-    return np.concatenate([beforeN, afterN])
 
 
 if __name__ == '__main__':
