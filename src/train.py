@@ -20,16 +20,19 @@ def train(Sender, Recver, env, episodes, render, log, savedir):
         target = env.reset()
         sender.reset()
         recver.reset()
-        prev_action = [torch.zeros(env.batch_size,1),
-                       torch.zeros(env.batch_size,1)]
-        done = False
+        prev_target = torch.zeros(env.batch_size, 1)
+        prev_message = torch.zeros(env.batch_size, 1)
+        prev_guess = torch.zeros(env.batch_size, 1)
 
+        done = False
         while not done:
-            message = sender.action([target] + prev_action)
-            guess = recver.action([message] + prev_action)
+            message = sender.action([target, prev_target, prev_message])
+            guess = recver.action([message, prev_message, prev_guess])
 
             target, rewards, done = env.step(guess)
-            prev_action = [message.detach(), guess.detach()]
+            prev_target = target.detach()
+            prev_message = message.detach()
+            prev_guess = guess.detach()
 
             sender.rewards.append(rewards[0])
             recver.rewards.append(rewards[1])
@@ -42,8 +45,9 @@ def train(Sender, Recver, env, episodes, render, log, savedir):
 
         if log and e % log == 0:
             print(f'EPISODE {e}')
-            print('REWRD   {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
+            print('REWD    {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
             print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
+            print('DIFF    {:2.2f}     {:2.2f}'.format(env.send_diffs[-1], env.recv_diffs[-1]))
             # print('PGRADS  {:2.4f}     {:2.4f}'.format(sender.last('preact grad'), recver.last('preact grad')))
             # print('AGRADS  {:2.4f}     {:2.4f}'.format(sender.last('act grad'), recver.last('act grad')))
             print('')
@@ -62,16 +66,16 @@ def plot_and_save(x, sender, recver, env, savedir):
     srew = np.array(sender.logger['ep_reward'])
     rrew = np.array(recver.logger['ep_reward'])
     avg_rew = (rrew + srew) / 2
-    target_std_loss = env.observation_space.n / (12**0.5)
-    target_rew = np.full_like(x, env._reward(target_std_loss), dtype=np.float)
+    nocomm_loss = torch.tensor(env.observation_space.n / 4)
+    nocomm_rew = env._reward(nocomm_loss)
     midbias_loss = env.bias_space.low + (env.bias_space.range / 2)
-    midbias_rew = np.full_like(x, env._reward(midbias_loss), dtype=np.float)
+    midbias_rew = env._reward(midbias_loss)
     truebias_rew = env._reward(torch.stack(env.biases)).numpy()
     plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
     plt.plot(x, running_mean(srew, 100), label='sender')
     plt.plot(x, running_mean(rrew, 100), label='recver')
-    plt.plot(x, target_rew, label='nocomm baseline')
-    plt.plot(x, midbias_rew, label='midbias baseline')
+    plt.axhline(nocomm_rew, label='nocomm baseline')
+    plt.axhline(midbias_rew, label='midbias baseline')
     plt.plot(x, running_mean(truebias_rew), label='truebias baseline')
     plt.legend()
     if savedir:

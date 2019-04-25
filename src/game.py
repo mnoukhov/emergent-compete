@@ -59,14 +59,6 @@ class IteratedSenderRecver(gym.Env):
                              size=(self.batch_size,1)).float()
 
 
-    # def _hav_reward(self, pred, target=None):
-        # if target is None:
-            # target = torch.tensor(0.)
-        # norm_dist = (pred - target) / self.num_targets
-        # radian_dist = 2*math.pi*norm_dist
-        # hav_dist = 2 * torch.asin(torch.sin(radian_dist/2) **2)
-        # return (1 - (hav_dist / math.pi))**2
-
     def _reward(self, pred, target=None):
         if target is None:
             target = torch.tensor(0.)
@@ -92,8 +84,12 @@ class IteratedSenderRecver(gym.Env):
         done = (self.round >= self.num_rounds)
 
         if done:
-            self.send_diffs.append(torch.abs(action - self.send_target).mean().item())
-            self.recv_diffs.append(torch.abs(action - self.recv_target).mean().item())
+            send_diffs = torch.abs(action - self.send_target)
+            send_diffs = torch.min(self.num_targets - send_diffs, send_diffs)
+            recv_diffs = torch.abs(action - self.recv_target)
+            recv_diffs = torch.min(self.num_targets - recv_diffs, recv_diffs)
+            self.send_diffs.append(send_diffs.mean().item())
+            self.recv_diffs.append(recv_diffs.mean().item())
 
         self.round_info = {
             'round': self.round,
