@@ -23,19 +23,23 @@ def train(Sender, Recver, env, episodes, render, log, savedir):
         prev_target = torch.zeros(env.batch_size, 1)
         prev_message = torch.zeros(env.batch_size, 1)
         prev_guess = torch.zeros(env.batch_size, 1)
+        prev_send_reward = torch.zeros(env.batch_size, 1)
+        prev_recv_reward = torch.zeros(env.batch_size, 1)
 
         done = False
         while not done:
-            message = sender.action([target, prev_target, prev_message])
-            guess = recver.action([message, prev_message, prev_guess])
+            message = sender.action([target, prev_target, prev_message, prev_send_reward])
+            guess = recver.action([message, prev_message, prev_guess, prev_recv_reward])
 
-            target, rewards, done = env.step(guess)
+            target, rewards, done, diffs = env.step(guess)
             prev_target = target.detach()
             prev_message = message.detach()
             prev_guess = guess.detach()
 
             sender.rewards.append(rewards[0])
             recver.rewards.append(rewards[1])
+            prev_send_reward = diffs[0].detach()
+            prev_recv_reward = diffs[1].detach()
 
             if render and e % render == 0:
                 env.render(message=message[0].item())
@@ -48,8 +52,6 @@ def train(Sender, Recver, env, episodes, render, log, savedir):
             print('REWD    {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
             print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
             print('DIFF    {:2.2f}     {:2.2f}'.format(env.send_diffs[-1], env.recv_diffs[-1]))
-            # print('PGRADS  {:2.4f}     {:2.4f}'.format(sender.last('preact grad'), recver.last('preact grad')))
-            # print('AGRADS  {:2.4f}     {:2.4f}'.format(sender.last('act grad'), recver.last('act grad')))
             print('')
 
     print('Game Over')
@@ -70,30 +72,28 @@ def plot_and_save(x, sender, recver, env, savedir):
     nocomm_rew = env._reward(nocomm_loss)
     midbias_loss = env.bias_space.low + (env.bias_space.range / 2)
     midbias_rew = env._reward(midbias_loss)
-    truebias_rew = env._reward(torch.stack(env.biases)).numpy()
     plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
     plt.plot(x, running_mean(srew, 100), label='sender')
     plt.plot(x, running_mean(rrew, 100), label='recver')
     plt.axhline(nocomm_rew, label='nocomm baseline')
     plt.axhline(midbias_rew, label='midbias baseline')
-    plt.plot(x, running_mean(truebias_rew), label='truebias baseline')
     plt.legend()
     if savedir:
         plt.savefig(f'{savedir}/rewards.png')
     plt.show()
 
     # REWARD PER ROUND
-    sround = np.array(sender.logger['round_reward'])
-    rround = np.array(recver.logger['round_reward'])
-    avg_round = (sround + rround) / 2
-    for r in range(env.num_rounds):
-        # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
-        # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
-        plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/round.png')
-    plt.show()
+    # sround = np.array(sender.logger['round_reward'])
+    # rround = np.array(recver.logger['round_reward'])
+    # avg_round = (sround + rround) / 2
+    # for r in range(env.num_rounds):
+        # # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
+        # # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
+        # plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
+    # plt.legend()
+    # if savedir:
+        # plt.savefig(f'{savedir}/round.png')
+    # plt.show()
 
     # ABS DIFF AT ROUND 5
     plt.plot(x, running_mean(env.send_diffs), label='sender')
@@ -104,14 +104,23 @@ def plot_and_save(x, sender, recver, env, savedir):
         plt.savefig(f'{savedir}/diff.png')
     plt.show()
 
+    # GRADS
+    # plt.plot(x, running_mean(sender.logger['preact grad']), label='sender-grad')
+    plt.plot(x, running_mean(recver.logger['preact grad']), label='recver-norm')
+    # plt.plot(x, running_mean(sender.logger['grad var']), label='sender-var')
+    plt.plot(x, running_mean(recver.logger['grad var']), label='recver-var')
+    plt.plot(x, running_mean(recver.logger['grad mean']), label='recver-mean')
+    plt.legend()
+    plt.show()
+
     # OUTPUT FOR 20
     # plt.plot(x, sender.logger['20'], label='sender')
-    plt.plot(x, recver.logger['20'], label='recver')
-    plt.title('Output for Input=20')
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/20.png')
-    plt.show()
+    # plt.plot(x, recver.logger['20'], label='recver')
+    # plt.title('Output for Input=20')
+    # plt.legend()
+    # if savedir:
+        # plt.savefig(f'{savedir}/20.png')
+    # plt.show()
 
     # ENTROPY
     # plt.plot(x, recver.logger['entropy'], label='entropy')

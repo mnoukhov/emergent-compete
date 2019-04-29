@@ -1,6 +1,6 @@
 # Main
 train.Sender = @UniformBias
-train.Recver = @DeterministicGradient
+train.Recver = @PolicyGradient
 train.env = @IteratedSenderRecver()
 train.episodes = 10000
 train.render = 1000
@@ -32,6 +32,7 @@ DeterministicGradient.lr = 5e-4
 #OneShotQNet.epsilon = 0.05
 
 PolicyGradient.lr = 1e-3
+PolicyGradient.weight_decay = 0
 PolicyGradient.gamma = 1.00
 PolicyGradient.ent_reg = 1e-3
 PolicyGradient.min_std = 1.

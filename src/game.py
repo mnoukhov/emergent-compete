@@ -46,12 +46,11 @@ class IteratedSenderRecver(gym.Env):
         self.bias_space = DiscreteRange(min_bias, max_bias)
         self.batch_size = batch_size
 
-        self.biases = []
         self.send_diffs = []
         self.recv_diffs = []
 
     def _generate_bias(self):
-        return torch.randint(self.bias_space.low, self.bias_space.high,
+        return torch.randint(self.bias_space.low, self.bias_space.high + 1,
                              size=(self.batch_size,1)).float()
 
     def _generate_target(self):
@@ -60,6 +59,13 @@ class IteratedSenderRecver(gym.Env):
 
 
     def _reward(self, pred, target=None):
+        if target is None:
+            target = torch.tensor(0.)
+        diff = torch.abs(pred - target)
+        dist = torch.min(diff, self.num_targets - diff)
+        return 1 - 2 * dist / self.num_targets
+
+    def _cos_reward(self, pred, target=None):
         if target is None:
             target = torch.tensor(0.)
         norm_dist = (pred - target) / self.num_targets
@@ -72,8 +78,6 @@ class IteratedSenderRecver(gym.Env):
         self.recv_target = self._generate_target()
         self.send_target = (self.recv_target + self.bias) % self.num_targets
 
-        self.biases.append(self.bias.mean())
-
         return self.send_target
 
     def step(self, action):
@@ -83,11 +87,12 @@ class IteratedSenderRecver(gym.Env):
                    self._reward(action, self.recv_target)]
         done = (self.round >= self.num_rounds)
 
+        action = action % self.num_targets
+        send_diffs = torch.abs(action - self.send_target)
+        send_diffs = torch.min(self.num_targets - send_diffs, send_diffs)
+        recv_diffs = torch.abs(action - self.recv_target)
+        recv_diffs = torch.min(self.num_targets - recv_diffs, recv_diffs)
         if done:
-            send_diffs = torch.abs(action - self.send_target)
-            send_diffs = torch.min(self.num_targets - send_diffs, send_diffs)
-            recv_diffs = torch.abs(action - self.recv_target)
-            recv_diffs = torch.min(self.num_targets - recv_diffs, recv_diffs)
             self.send_diffs.append(send_diffs.mean().item())
             self.recv_diffs.append(recv_diffs.mean().item())
 
@@ -103,7 +108,7 @@ class IteratedSenderRecver(gym.Env):
         self.recv_target = self._generate_target()
         self.send_target = (self.recv_target + self.bias) % self.num_targets
 
-        return self.send_target, rewards, done
+        return self.send_target, rewards, done, [send_diffs, recv_diffs]
 
     def render(self, message=-1.0):
         print('--- round {} ---'.format(self.round_info['round']))

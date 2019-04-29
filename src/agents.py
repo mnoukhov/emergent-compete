@@ -13,7 +13,7 @@ from utils import discount_return
 
 
 class Policy(nn.Module):
-    def __init__(self, mode, gamma=1.0):
+    def __init__(self, mode, gamma=1.0, **kwargs):
         super().__init__()
         self.mode = mode
         self.gamma = gamma
@@ -45,16 +45,16 @@ class Policy(nn.Module):
 @gin.configurable
 class Human(Policy):
     def action(self, state):
-        obs, _, _ = state
+        obs = state[0]
 
         if self.mode == 0:
             prompt = 'target {}: '.format(obs.item())
         elif self.mode == 1:
             prompt = 'message {}: '.format(obs.item())
 
-        action = int(input(prompt))
+        action = float(input(prompt))
 
-        return torch.tensor(action)
+        return torch.tensor([action])
 
 
 @gin.configurable
@@ -142,64 +142,57 @@ class DeterministicGradient(Policy):
     def __init__(self, mode, num_actions, lr):
         super().__init__(mode)
         self.num_actions = num_actions
-        self.policy = nn.Linear(3,1)
+        self.policy = nn.Linear(4,1)
         init.uniform_(self.policy.weight, 1/9, 1/3)
-        init.uniform_(self.policy.bias, 1/9, 1/3)
+        init.uniform_(self.policy.bias, 0, 1)
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
+        print(self.policy.weight)
+        print(self.policy.bias)
 
         self.logger.update({
             'loss': [],
             '20': [],
-            'preact grad': [],
-            'act grad': []
         })
-        self.grad = []
+        self.weight_grad = []
         self.act_grad = []
         self.preact_grad = []
-        self.policy.weight.register_hook(self.grad.append)
+        self.policy.weight.register_hook(self.weight_grad.append)
 
     def reset(self):
         super().reset()
-        del self.grad[:]
+        del self.weight_grad[:]
         del self.act_grad[:]
         del self.preact_grad[:]
 
     def action(self, state):
         input_ = torch.cat(state, dim=1)
         action = self.policy(input_)
-        action.register_hook(self.preact_grad.append)
-        clamped = torch.clamp(action, 0, self.num_actions)
-        clamped.register_hook(self.act_grad.append)
-
-        return clamped
+        return action
 
     def update(self):
         super().update()
         loss = -torch.stack(self.rewards).mean()
         self.logger['loss'].append(loss.item())
+        out20 = self.policy(torch.tensor([20., 0., 0., 0.]))[0].item()
+        self.logger['20'].append(out20)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        self.logger['act grad'].append(torch.stack(self.act_grad).norm(2).item())
-        self.logger['preact grad'].append(torch.stack(self.preact_grad).norm(2).item())
-        self.logger['20'].append(self.policy(torch.tensor([20., 0., 0.]))[0].item())
-        # self.logger['grad'].append(torch.stack(self.grad).norm(2).item())
-
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, num_actions, lr, gamma, ent_reg, min_std, mode):
+    def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, min_std, mode):
         super().__init__(mode)
         self.num_actions = num_actions
         self.gamma = gamma
         self.min_std = torch.tensor(min_std)
-        self.policy = nn.Linear(3,2)
-        init.uniform_(self.policy.weight, 1/9, 1)
-        init.uniform_(self.policy.bias, 1/9, 1)
+        self.policy = nn.Linear(4,2)
+        # init.uniform_(self.policy.weight, 1/9, 1)
+        # init.uniform_(self.policy.bias, 1/9, 1)
 
-        self.optimizer = Adam(self.parameters(), lr=lr)
+        self.optimizer = Adam(self.parameters(), lr=lr, weight_decay=weight_decay)
         self.ent_reg = ent_reg
 
         self.logger.update({
@@ -237,7 +230,7 @@ class PolicyGradient(Policy):
 
     def update(self):
         super().update()
-        out20 = self.policy(torch.tensor([20., 0., 0.]))[0]
+        out20 = self.policy(torch.tensor([20., 0., 0., 0.]))[0]
 
         returns = torch.cat(discount_return(self.rewards, self.gamma), dim=1)
         logprobs = torch.cat(self.log_probs, dim=1)
