@@ -33,3 +33,9 @@ def running_mean(x, N=100):
     return np.concatenate([beforeN, afterN])
 
 
+def circle_diff(x, y, circ):
+    # x - y on a circle
+    diff = x - y
+    diff[diff > circ/2] -= circ
+    diff[diff < -circ/2] += circ
+    return diff

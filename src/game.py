@@ -14,7 +14,8 @@ from gym.spaces import Discrete
 import numpy as np
 import torch
 
-import math
+from src.utils import circle_diff
+# import math
 
 
 class DiscreteRange(Discrete):
@@ -51,26 +52,38 @@ class IteratedSenderRecver(gym.Env):
 
     def _generate_bias(self):
         return torch.randint(self.bias_space.low, self.bias_space.high + 1,
-                             size=(self.batch_size,1)).float()
+                             size=(self.batch_size,)).float()
 
     def _generate_target(self):
         return torch.randint(self.action_space.n,
-                             size=(self.batch_size,1)).float()
-
+                             size=(self.batch_size,)).float()
 
     def _reward(self, pred, target=None):
         if target is None:
             target = torch.tensor(0.)
-        diff = torch.abs(pred - target)
-        dist = torch.min(diff, self.num_targets - diff)
-        return 1 - 2 * dist / self.num_targets
+        dist = torch.abs(circle_diff(pred, target, self.num_targets))
+        # dist = torch.min(diff, self.num_targets - diff)
+        return (1 - 2 * dist / self.num_targets) ** 2
 
-    def _cos_reward(self, pred, target=None):
-        if target is None:
-            target = torch.tensor(0.)
-        norm_dist = (pred - target) / self.num_targets
-        radian_dist = 2*math.pi*norm_dist
-        return 0.5*(1 + torch.cos(radian_dist))
+    # def _reward(self, pred, target=None):
+        # if target is None:
+            # target = torch.tensor(0.)
+        # diff = torch.abs(pred - target)
+        # dist = torch.min(diff, self.num_targets - diff)
+        # return 1 - 2 * dist / self.num_targets
+
+    # def _reward(self, pred, target=None):
+        # if target is None:
+            # target = torch.tensor(0.)
+        # norm_dist = (pred - target) / self.num_targets
+        # radian_dist = 2*math.pi*norm_dist
+        # return 0.5*(1 + torch.cos(radian_dist))
+
+    # def _reward(self, pred, target=None):
+        # if target is None:
+            # target = torch.tensor(0.)
+        # norm_dist = (pred - target) / self.num_targets
+        # return 1-norm_dist**2
 
     def reset(self):
         self.round = 0
@@ -87,14 +100,11 @@ class IteratedSenderRecver(gym.Env):
                    self._reward(action, self.recv_target)]
         done = (self.round >= self.num_rounds)
 
-        action = action % self.num_targets
-        send_diffs = torch.abs(action - self.send_target)
-        send_diffs = torch.min(self.num_targets - send_diffs, send_diffs)
-        recv_diffs = torch.abs(action - self.recv_target)
-        recv_diffs = torch.min(self.num_targets - recv_diffs, recv_diffs)
+        send_diffs = circle_diff(self.send_target, action, self.num_targets)
+        recv_diffs = circle_diff(self.recv_target, action, self.num_targets)
         if done:
-            self.send_diffs.append(send_diffs.mean().item())
-            self.recv_diffs.append(recv_diffs.mean().item())
+            self.send_diffs.append(send_diffs.abs().mean().item())
+            self.recv_diffs.append(recv_diffs.abs().mean().item())
 
         self.round_info = {
             'round': self.round,
@@ -103,6 +113,8 @@ class IteratedSenderRecver(gym.Env):
             'guess': action[0].item(),
             'send_reward': rewards[0][0].item(),
             'recv_reward': rewards[1][0].item(),
+            'send_diff': send_diffs[0].item(),
+            'recv_diff': recv_diffs[0].item(),
         }
 
         self.recv_target = self._generate_target()
@@ -118,6 +130,10 @@ class IteratedSenderRecver(gym.Env):
         print('message {: <6.2f}   guess {:<5.2f}'.format(
             message,
             self.round_info['guess']))
-        print('rewards   {: <5.2f}          {:<4.2f}'.format(
+        print('rewards  {: <5.2f}          {:<4.2f}'.format(
             self.round_info['send_reward'],
             self.round_info['recv_reward']))
+        if self.round_info['send_diff']:
+            print('diffs    {: <5.2f}          {:<4.2f}'.format(
+                self.round_info['send_diff'],
+                self.round_info['recv_diff']))

@@ -101,7 +101,7 @@ class TestStep(unittest.TestCase):
         action = torch.tensor([20.])
         send_target = self.isr.send_target
         recv_target = self.isr.recv_target
-        _, rewards, _ = self.isr.step(action)
+        _, rewards, _, _ = self.isr.step(action)
         send_reward, recv_reward = rewards
 
         exp_send_reward = self.isr._reward(send_target, action)
