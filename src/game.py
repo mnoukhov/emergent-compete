@@ -51,19 +51,17 @@ class IteratedSenderRecver(gym.Env):
         self.recv_diffs = []
 
     def _generate_bias(self):
-        return torch.randint(self.bias_space.low, self.bias_space.high + 1,
-                             size=(self.batch_size,)).float()
+        return self.bias_space.low + torch.rand(size=(self.batch_size,)) * self.bias_space.range
 
     def _generate_target(self):
-        return torch.randint(self.action_space.n,
-                             size=(self.batch_size,)).float()
+        return torch.rand(size=(self.batch_size,)) * self.action_space.n
 
     def _reward(self, pred, target=None):
         if target is None:
             target = torch.tensor(0.)
         dist = torch.abs(circle_diff(pred, target, self.num_targets))
         # dist = torch.min(diff, self.num_targets - diff)
-        return (1 - 2 * dist / self.num_targets) ** 2
+        return (1 - (2 * dist / self.num_targets))
 
     # def _reward(self, pred, target=None):
         # if target is None:
@@ -124,10 +122,10 @@ class IteratedSenderRecver(gym.Env):
 
     def render(self, message=-1.0):
         print('--- round {} ---'.format(self.round_info['round']))
-        print('targetS {:<2}   targetR {:2}'.format(
+        print('targetS {:<5.2f}   targetR {:<5.2f}'.format(
             self.round_info['send_target'],
             self.round_info['recv_target']))
-        print('message {: <6.2f}   guess {:<5.2f}'.format(
+        print('message {:<5.2f}   guess   {:<4.2f}'.format(
             message,
             self.round_info['guess']))
         print('rewards  {: <5.2f}          {:<4.2f}'.format(

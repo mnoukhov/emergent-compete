@@ -144,22 +144,21 @@ class DeterministicGradient(Policy):
     def __init__(self, mode, num_actions, lr):
         super().__init__(mode)
         self.num_actions = num_actions
-        self.num_inputs = 5
         self.policy = nn.Sequential(
-            nn.Linear(self.num_inputs, 10, bias=False),
+            nn.Linear(8, 10),
             nn.ReLU(),
-            nn.Linear(10, 10, bias=False),
+            nn.Linear(10,10),
             nn.ReLU(),
-            nn.Linear(10, 1, bias=False)
-        )
-        self.optimizer = Adam(self.policy.parameters(), lr=lr)
+            nn.Linear(10,1))
+        self.optimizer = Adam(self.parameters(), lr=lr)
 
         self.logger.update({
             'loss': [],
             '20 start': [],
             '20 same': [],
             'weight grad': [],
-            'weights': []
+            'weights': [],
+            'biases': [],
         })
         self.weight_grad = []
         self.act_grad = []
@@ -179,17 +178,49 @@ class DeterministicGradient(Policy):
         super().update()
         loss = -torch.stack(self.rewards).mean()
         self.logger['loss'].append(loss.item())
-        start20 = self.policy(torch.tensor([20., 0., 0., 0., 1.]))[0]
-        self.logger['20 start'].append(start20.item())
-        same20 = self.policy(torch.tensor([20., 10., 10., 0., 0.,]))[0]
-        self.logger['20 same'].append(same20.item())
+        # start20 = self.policy(torch.tensor([20., 0., 0., 0., 0., 1.]))[0]
+        # self.logger['20 start'].append(start20.item())
+        # same20 = self.policy(torch.tensor([20., 10., 10., 10., 10., 0.,]))[0]
+        # self.logger['20 same'].append(same20.item())
 
         self.optimizer.zero_grad()
         loss.backward()
         norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
         self.logger['weight grad'].append(norm)
         # self.logger['weights'].append(self.policy.weight.data[0].tolist())
+        # self.logger['biases'].append(self.policy.bias.data[0].tolist())
         self.optimizer.step()
+
+
+@gin.configurable
+class RecurrentDG(DeterministicGradient):
+    def __init__(self, mode, num_actions, lr):
+        super().__init__(mode, num_actions, lr)
+        self.policy = nn.Sequential(
+            nn.Linear(3, 10, bias=False),
+            nn.ReLU(),
+            nn.Linear(10, 10, bias=False),
+            nn.ReLU(),
+            nn.Linear(10, 1, bias=False)
+        )
+        self.rnn = nn.LSTMCell(2, 2)
+        self.h = torch.zeros(64,2)
+        self.c = torch.zeros(64,2)
+        self.optimizer = Adam(self.parameters(), lr=lr)
+
+    def reset(self):
+        super().reset()
+        self.h = torch.zeros(64,2)
+        self.c = torch.zeros(64,2)
+
+    def action(self, state):
+        input_ = state[:,0].unsqueeze(1)
+        prev_state = state[:,1:]
+        # if state is not zeros
+        self.h, self.c = self.rnn(prev_state, (self.h, self.c))
+        state_input = torch.cat([self.h, input_], dim=1)
+        action = self.policy(state_input).squeeze()
+        return action % self.num_actions
 
 
 @gin.configurable

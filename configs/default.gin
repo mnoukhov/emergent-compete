@@ -6,9 +6,10 @@ train.episodes = 10000
 train.render = 1000
 train.log = 1000
 train.savedir = None
+train.device = "cpu"
 
 # Game
-IteratedSenderRecver.batch_size = 64
+IteratedSenderRecver.batch_size = 128
 IteratedSenderRecver.num_rounds = 5
 IteratedSenderRecver.num_targets = 100
 IteratedSenderRecver.max_bias = 10
@@ -18,6 +19,8 @@ IteratedSenderRecver.min_bias = 0
 UniformBias.bias = 0
 
 DeterministicGradient.lr = 5e-4
+
+RecurrentDG.lr = 5e-4
 
 #NaiveQNet.n = %n
 #NaiveQNet.gamma = 0.96
