@@ -201,7 +201,14 @@ class PolicyGradient(Policy):
         self.num_actions = num_actions
         self.gamma = gamma
         self.min_std = torch.tensor(min_std)
-        self.policy = nn.Linear(4,2)
+        self.policy = nn.Sequential(
+            nn.Linear(7, 20),
+            nn.ReLU(),
+            nn.Linear(20, 30),
+            nn.ReLU(),
+            nn.Linear(30, 15),
+            nn.ReLU(),
+            nn.Linear(15, 2))
 
         self.optimizer = Adam(self.parameters(), lr=lr, weight_decay=weight_decay)
         self.ent_reg = ent_reg
@@ -215,7 +222,7 @@ class PolicyGradient(Policy):
         self.log_probs = []
         self.weight_grad = []
         self.entropy = 0
-        self.policy.weight.register_hook(self.weight_grad.append)
+        # self.policy.weight.register_hook(self.weight_grad.append)
 
     def reset(self):
         super().reset()
@@ -226,8 +233,9 @@ class PolicyGradient(Policy):
     def action(self, state):
         out = self.policy(state)
         mean, std = out.chunk(2, dim=1)
+        mean = mean.squeeze()
+        std = std.squeeze()
 
-        mean = torch.clamp(mean, 0, self.num_actions)
         std = torch.max(std, self.min_std)
         dist = Normal(mean, std)
         sample = dist.sample()
@@ -235,12 +243,11 @@ class PolicyGradient(Policy):
         self.entropy += dist.entropy()
         self.log_probs.append(dist.log_prob(sample))
 
-        with torch.no_grad():
-            return sample.round() % self.num_actions
+        return sample % self.num_actions
 
     def update(self):
         super().update()
-        out20 = self.policy(torch.tensor([20., 0., 0., 0.]))[0]
+        # out20 = self.policy(torch.tensor([20., 0., 0., 0.]))[0]
 
         returns = torch.stack(discount_return(self.rewards, self.gamma), dim=1)
         logprobs = torch.stack(self.log_probs, dim=1)
@@ -252,17 +259,23 @@ class PolicyGradient(Policy):
         self.optimizer.step()
 
         self.logger['loss'].append(loss.item())
-        self.logger['grad'].append(torch.stack(self.weight_grad).norm(2).item())
+        # self.logger['grad'].append(torch.stack(self.weight_grad).norm(2).item())
         self.logger['entropy'].append(entropy.item())
-        self.logger['20'].append(out20.item())
+        # self.logger['20'].append(out20.item())
 
 
 @gin.configurable
 class CategoricalPG(PolicyGradient):
     def __init__(self, num_actions, *args, **kwargs):
         super().__init__(num_actions, *args, **kwargs)
-        self.policy = nn.Linear(4, num_actions)
-        self.policy.weight.register_hook(self.weight_grad.append)
+        self.policy = nn.Sequential(
+            nn.Linear(7, 20),
+            nn.ReLU(),
+            nn.Linear(20, 40),
+            nn.ReLU(),
+            nn.Linear(40, 40),
+            nn.ReLU(),
+            nn.Linear(40, self.num_actions))
 
     def action(self, state):
         logits = self.policy(state)
@@ -286,8 +299,22 @@ class A2C(Policy):
         self.min_std = torch.tensor(min_std)
         self.ent_reg = ent_reg
 
-        self.actor = nn.Linear(2, 2)
-        self.critic = nn.Linear(2, 1)
+        self.actor = nn.Sequential(
+            nn.Linear(7, 15),
+            nn.ReLU(),
+            nn.Linear(15, 30),
+            nn.ReLU(),
+            nn.Linear(30, 15),
+            nn.ReLU(),
+            nn.Linear(15, 2))
+        self.critic =  nn.Sequential(
+            nn.Linear(7, 15),
+            nn.ReLU(),
+            nn.Linear(15, 30),
+            nn.ReLU(),
+            nn.Linear(30, 15),
+            nn.ReLU(),
+            nn.Linear(15, 1))
         # init.uniform_(self.actor.weight, 1/9, 1/3)
         # init.uniform_(self.actor.bias, 1/9, 1/3)
         # init.uniform_(self.critic.weight, 1/9, 1/3)
@@ -311,28 +338,29 @@ class A2C(Policy):
         self.entropy = 0
 
     def action(self, state):
-        state = torch.cat(state, dim=1)
         mean, std = self.actor(state).chunk(2, dim=1)
+        mean, std = mean.squeeze(), std.squeeze()
         std = torch.max(std, self.min_std)
         dist = Normal(mean, std)
         sample = dist.sample()
 
-        value = self.critic(state)
-
+        value = self.critic(state).squeeze()
         self.entropy += dist.entropy()
         self.log_probs.append(dist.log_prob(sample))
         self.values.append(value)
 
-        return sample.round() % self.num_actions
+        return sample % self.num_actions
 
 
     def update(self):
         super().update()
-        out20 = self.actor(torch.tensor([20., 0.]))[0] % self.num_actions
+        in20 = torch.zeros(7)
+        in20[0] = 20.
+        out20 = self.actor(in20)[0] % self.num_actions
 
-        returns = torch.cat(discount_return(self.rewards, self.gamma), dim=1)
-        logprobs = torch.cat(self.log_probs, dim=1)
-        values = torch.cat(self.values, dim=1)
+        returns = torch.stack(discount_return(self.rewards, self.gamma), dim=1)
+        logprobs = torch.stack(self.log_probs, dim=1)
+        values = torch.stack(self.values, dim=1)
         entropy = self.entropy.mean()
 
         adv = returns - values
