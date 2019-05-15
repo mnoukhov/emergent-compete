@@ -30,17 +30,15 @@ def train(Sender, Recver, env, episodes, render, log, savedir, device):
         prev2_message = torch.zeros(env.batch_size).to(device)
         prev2_guess = torch.zeros(env.batch_size).to(device)
         prev2_recv_reward = torch.zeros(env.batch_size).to(device)
-        round_num = torch.ones(env.batch_size).to(device)
 
         done = False
         while not done:
-            send_state = torch.stack([target, prev_target, prev_message, round_num], dim=1)
+            send_state = torch.stack([target, prev_target, prev_message], dim=1)
             message = sender.action(send_state)
 
             recv_state = torch.stack([message,
                                       prev_message, prev_guess, prev_recv_reward,
-                                      prev2_message, prev2_guess, prev2_recv_reward,
-                                      round_num], dim=1)
+                                      prev2_message, prev2_guess, prev2_recv_reward], dim=1)
             guess = recver.action(recv_state)
 
             prev2_target = prev_target
@@ -53,7 +51,6 @@ def train(Sender, Recver, env, episodes, render, log, savedir, device):
             prev_message = message
             prev_guess = guess
             prev_recv_reward = recv_reward
-            round_num = torch.zeros(env.batch_size).to(device)
 
             sender.rewards.append(send_reward)
             recver.rewards.append(recv_reward)
@@ -85,15 +82,17 @@ def plot_and_save(x, sender, recver, env, savedir):
     srew = np.array(sender.logger['ep_reward'])
     rrew = np.array(recver.logger['ep_reward'])
     avg_rew = (rrew + srew) / 2
+    plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
+    plt.plot(x, running_mean(srew, 100), label='sender')
+    plt.plot(x, running_mean(rrew, 100), label='recver')
     nocomm_loss = torch.tensor(env.observation_space.n / 4)
     nocomm_rew = env._reward(nocomm_loss)
     oneshot_loss = (env.bias_space.range) / 4
     oneshot_rew = env._reward(oneshot_loss)
-    plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
-    plt.plot(x, running_mean(srew, 100), label='sender')
-    plt.plot(x, running_mean(rrew, 100), label='recver')
+    perfect_rew = env._reward(oneshot_loss / env.num_rounds)
     plt.axhline(nocomm_rew, label='nocomm baseline')
     plt.axhline(oneshot_rew, label='one-shot baseline')
+    plt.axhline(perfect_rew, label='perfect agent')
     plt.legend()
     if savedir:
         plt.savefig(f'{savedir}/rewards.png')

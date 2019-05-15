@@ -145,11 +145,13 @@ class DeterministicGradient(Policy):
         super().__init__(mode)
         self.num_actions = num_actions
         self.policy = nn.Sequential(
-            nn.Linear(8, 10),
+            nn.Linear(7, 20),
             nn.ReLU(),
-            nn.Linear(10,10),
+            nn.Linear(20, 30),
             nn.ReLU(),
-            nn.Linear(10,1))
+            nn.Linear(30, 15),
+            nn.ReLU(),
+            nn.Linear(15, 1))
         self.optimizer = Adam(self.parameters(), lr=lr)
 
         self.logger.update({
@@ -190,37 +192,6 @@ class DeterministicGradient(Policy):
         # self.logger['weights'].append(self.policy.weight.data[0].tolist())
         # self.logger['biases'].append(self.policy.bias.data[0].tolist())
         self.optimizer.step()
-
-
-@gin.configurable
-class RecurrentDG(DeterministicGradient):
-    def __init__(self, mode, num_actions, lr):
-        super().__init__(mode, num_actions, lr)
-        self.policy = nn.Sequential(
-            nn.Linear(3, 10, bias=False),
-            nn.ReLU(),
-            nn.Linear(10, 10, bias=False),
-            nn.ReLU(),
-            nn.Linear(10, 1, bias=False)
-        )
-        self.rnn = nn.LSTMCell(2, 2)
-        self.h = torch.zeros(64,2)
-        self.c = torch.zeros(64,2)
-        self.optimizer = Adam(self.parameters(), lr=lr)
-
-    def reset(self):
-        super().reset()
-        self.h = torch.zeros(64,2)
-        self.c = torch.zeros(64,2)
-
-    def action(self, state):
-        input_ = state[:,0].unsqueeze(1)
-        prev_state = state[:,1:]
-        # if state is not zeros
-        self.h, self.c = self.rnn(prev_state, (self.h, self.c))
-        state_input = torch.cat([self.h, input_], dim=1)
-        action = self.policy(state_input).squeeze()
-        return action % self.num_actions
 
 
 @gin.configurable

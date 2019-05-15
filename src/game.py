@@ -60,8 +60,9 @@ class IteratedSenderRecver(gym.Env):
         if target is None:
             target = torch.tensor(0.)
         dist = torch.abs(circle_diff(pred, target, self.num_targets))
+        return - dist
         # dist = torch.min(diff, self.num_targets - diff)
-        return (1 - (2 * dist / self.num_targets))
+        # return (1 - (2 * dist / self.num_targets))
 
     # def _reward(self, pred, target=None):
         # if target is None:

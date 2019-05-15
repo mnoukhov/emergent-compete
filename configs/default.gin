@@ -20,8 +20,6 @@ UniformBias.bias = 0
 
 DeterministicGradient.lr = 5e-4
 
-RecurrentDG.lr = 5e-4
-
 #NaiveQNet.n = %n
 #NaiveQNet.gamma = 0.96
 #NaiveQNet.alpha = 1e-2
