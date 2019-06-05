@@ -4,7 +4,10 @@ channels:
     - defaults
 dependencies:
     - python=3.7
-    - pytorch-cpu
+    - pytorch
+    - matplotlib
+    - pillow
     - pip:
-        - gym=0.11
-        - gin-config=0.1
+        - gym
+        - gin-config
+        - tb-nightly
