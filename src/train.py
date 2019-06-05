@@ -96,8 +96,8 @@ def train(Sender, Recver, env, episodes, render, log, savedir, device):
         recver.memory.push(prev_recv_state, message, action,
                            send_reward, recv_reward, recv_state)
 
-        sender.update()
-        recver.update(e)
+        sender.update(log=(e % log == 0))
+        recver.update(e, log=(e % log == 0))
 
         if log and e % log == 0:
             print(f'EPISODE {e}')
@@ -106,6 +106,7 @@ def train(Sender, Recver, env, episodes, render, log, savedir, device):
             print('DIFF    {:2.2f}     {:2.2f}'.format(env.send_diffs[-1], env.recv_diffs[-1]))
             print('')
 
+    sender.writer.close()
     recver.writer.close()
     print('Game Over')
     x = list(range(episodes))

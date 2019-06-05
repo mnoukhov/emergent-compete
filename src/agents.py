@@ -29,6 +29,7 @@ class Policy(nn.Module):
             'ep_reward': [],
             'round_reward': [],
         }
+        self.writer = SummaryWriter(comment=mode.name)
 
     def last(self, metric):
         values = self.logger.get(metric, None)
@@ -43,11 +44,18 @@ class Policy(nn.Module):
     def action(self, state):
         pass
 
-    def update(self):
+    def update(self, log=True):
         rewards = torch.stack(self.rewards, dim=1)
-        self.logger['ep_reward'].append(rewards.mean().item())
-        self.logger['round_reward'].append(rewards.mean(dim=0).tolist())
+        mean_reward = rewards.mean().item()
+        round_reward = rewards.mean(dim=0).tolist()
+        self.logger['ep_reward'].append(mean_reward)
+        self.logger['round_reward'].append(round_reward)
 
+        if log:
+            self.writer.add_scalar('reward', mean_reward)
+            for r, reward in enumerate(round_reward):
+                self.writer.add_scalar(f'reward/{r}', reward)
+            print("WROTE")
 
 @gin.configurable
 class Human(Policy):
@@ -321,7 +329,6 @@ class DDPG(Policy):
                  actor_lr, critic_lr, batch_size,
                  warmup_episodes, **kwargs):
         super().__init__(**kwargs)
-        self.writer = SummaryWriter()
         self.actor = Actor(12)
         self.actor_target = deepcopy(self.actor)
         self.actor_optimizer = Adam(self.actor.parameters(), lr=actor_lr)
@@ -352,8 +359,8 @@ class DDPG(Policy):
 
         return action % self.num_actions
 
-    def update(self, ep):
-        super().update()
+    def update(self, ep, **kwargs):
+        super().update(**kwargs)
         if ep < self.warmup_episodes:
             return
 
@@ -383,7 +390,6 @@ class DDPG(Policy):
         self.logger['loss'].append(actor_loss.item() + critic_loss.item())
         self.writer.add_scalar('actor loss', actor_loss.item(), global_step=ep)
         self.writer.add_scalar('critic loss', critic_loss.item(), global_step=ep)
-
 
     def target_update(self):
         soft_update(self.actor, self.actor_target, self.tau)
