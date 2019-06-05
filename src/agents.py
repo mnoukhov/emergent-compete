@@ -1,25 +1,30 @@
 from abc import abstractmethod
+from copy import deepcopy
+from enum import Enum
 import random
 
 import gin
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import init
-from torch.optim import Adam, SGD
+from torch.optim import Adam
 from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
+from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.tensorboard import SummaryWriter
 
-from utils import discount_return
+from src.memory import ReplayBuffer
+from src.utils import (discount_return, soft_update, hard_update)
+
+mode = Enum('Player', 'SENDER RECVER')
 
 
 class Policy(nn.Module):
-    def __init__(self, mode, gamma=1.0, **kwargs):
+    def __init__(self, mode, *args, **kwargs):
         super().__init__()
-        self.mode = mode
-        self.gamma = gamma
         self.rewards = []
+        self.mode = mode
         self.logger = {
             'ep_reward': [],
             'round_reward': [],
@@ -38,7 +43,7 @@ class Policy(nn.Module):
     def action(self, state):
         pass
 
-    def update(self, *args, **kwargs):
+    def update(self):
         rewards = torch.stack(self.rewards, dim=1)
         self.logger['ep_reward'].append(rewards.mean().item())
         self.logger['round_reward'].append(rewards.mean(dim=0).tolist())
@@ -46,12 +51,12 @@ class Policy(nn.Module):
 
 @gin.configurable
 class Human(Policy):
-    def action(self, state):
+    def action(self, state, mode):
         obs = state[0]
 
-        if self.mode == 0:
+        if self.mode == mode.SENDER:
             prompt = 'target {}: '.format(obs.item())
-        elif self.mode == 1:
+        elif self.mode == mode.RECVER:
             prompt = 'message {}: '.format(obs.item())
 
         action = float(input(prompt))
@@ -79,70 +84,9 @@ class UniformBias(Policy):
 
 
 @gin.configurable
-class NaiveQNet(Policy):
-    """Q Learning with epsilon-greedy
-
-    state = target * prev_message * prev_guess
-    """
-
-    def __init__(self, n, gamma, alpha, decay, epsilon):
-        self.n = n
-        self.gamma = gamma
-        self.alpha = alpha
-        self.decay = decay
-        self.epsilon = epsilon
-        self.Q = torch.rand(self.states, self.n)
-
-    @property
-    def states(self):
-        return self.n**3 + 1
-
-    def action(self, state):
-        state_idx = self._to_idx(state)
-        logits = self.Q[state_idx]
-        return self._epsilon_greedy(logits)
-
-    def _epsilon_greedy(self, logits):
-        if random.random() <= self.epsilon:
-            return torch.randint(self.n - 1, size=())
-        else:
-            return torch.argmax(logits)
-
-    def update(self, round, prev_state, action, next_state, reward):
-        next_state_idx = self._to_idx(next_state)
-        V = torch.max(self.Q[next_state_idx])
-
-        # alpha = 1 / (1 / self.alpha + round * self.decay)
-        alpha = self.alpha
-        prev_state_idx = self._to_idx(prev_state)
-
-        self.Q[prev_state_idx, action] = ( (1 - alpha) * self.Q[prev_state_idx, action]
-                                          + alpha * (reward + self.gamma * V))
-
-    def _to_idx(self, state):
-        if any(s == -1 for s in state):
-            return 0
-        else:
-            return self.n**2 * state[0] + self.n*state[1] + state[2] + 1
-
-
-@gin.configurable
-class OneShotQNet(NaiveQNet):
-    @property
-    def states(self):
-        return self.n + 1
-
-    def _to_idx(self, state):
-        if any(s == -1 for s in state):
-            return 0
-        else:
-            return state[0] + 1
-
-
-@gin.configurable
 class DeterministicGradient(Policy):
-    def __init__(self, mode, num_actions, lr):
-        super().__init__(mode)
+    def __init__(self, num_actions, lr):
+        super().__init__()
         self.num_actions = num_actions
         self.policy = nn.Sequential(
             nn.Linear(7, 20),
@@ -196,8 +140,8 @@ class DeterministicGradient(Policy):
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, min_std, mode):
-        super().__init__(mode)
+    def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, min_std):
+        super().__init__()
         self.num_actions = num_actions
         self.gamma = gamma
         self.min_std = torch.tensor(min_std)
@@ -292,8 +236,8 @@ class CategoricalPG(PolicyGradient):
 
 @gin.configurable
 class A2C(Policy):
-    def __init__(self, num_actions, gamma, lr, min_std, ent_reg, mode):
-        super().__init__(mode)
+    def __init__(self, num_actions, gamma, lr, min_std, ent_reg):
+        super().__init__()
         self.num_actions = num_actions
         self.gamma = gamma
         self.min_std = torch.tensor(min_std)
@@ -315,11 +259,6 @@ class A2C(Policy):
             nn.Linear(30, 15),
             nn.ReLU(),
             nn.Linear(15, 1))
-        # init.uniform_(self.actor.weight, 1/9, 1/3)
-        # init.uniform_(self.actor.bias, 1/9, 1/3)
-        # init.uniform_(self.critic.weight, 1/9, 1/3)
-        # init.uniform_(self.critic.bias, 1/9, 1/3)
-
         self.optimizer = Adam(self.parameters(), lr=lr)
 
         self.values = []
@@ -351,7 +290,6 @@ class A2C(Policy):
 
         return sample % self.num_actions
 
-
     def update(self):
         super().update()
         in20 = torch.zeros(7)
@@ -379,5 +317,108 @@ class A2C(Policy):
 
 @gin.configurable
 class DDPG(Policy):
-    def __init__(self, num_actions, gamma, lr, min_std, ent_reg, mode):
-        pass
+    def __init__(self, num_actions, gamma, tau,
+                 actor_lr, critic_lr, batch_size,
+                 warmup_episodes, **kwargs):
+        super().__init__(**kwargs)
+        self.writer = SummaryWriter()
+        self.actor = Actor(12)
+        self.actor_target = deepcopy(self.actor)
+        self.actor_optimizer = Adam(self.actor.parameters(), lr=actor_lr)
+
+        self.critic = Critic(12,1)
+        self.critic_target = deepcopy(self.critic)
+        self.critic_optimizer = Adam(self.critic.parameters(), lr=critic_lr)
+
+        self.memory = ReplayBuffer()
+        self.noise = Normal(0, scale=0.2)
+
+        self.num_actions = num_actions
+        self.gamma = gamma
+        self.tau = tau
+        self.warmup_episodes = warmup_episodes
+        self.batch_size = batch_size
+        self.logger.update({
+            'loss': [],
+        })
+
+    def action(self, state):
+        batch_size = state.shape[0]
+        with torch.no_grad():
+            action = self.actor(state).squeeze()
+
+        if self.training:
+            action += self.noise.sample(sample_shape=(batch_size,))
+
+        return action % self.num_actions
+
+    def update(self, ep):
+        super().update()
+        if ep < self.warmup_episodes:
+            return
+
+        # hardcoded for recver
+        state, _, action, _, reward, next_state = self.memory.sample(self.batch_size)
+
+        current_Q = self.critic(state, action)
+        next_action = self.actor_target(next_state).squeeze()
+        next_Q = self.critic_target(next_state, next_action)
+        target_Q = reward.unsqueeze(1) + self.gamma * next_Q
+        critic_loss = F.mse_loss(current_Q, target_Q)
+
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
+        current_action = self.actor(state).squeeze()
+        critic_reward = self.critic(state, current_action)
+        actor_loss = -critic_reward.mean()
+
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
+
+        self.target_update()
+
+        self.logger['loss'].append(actor_loss.item() + critic_loss.item())
+        self.writer.add_scalar('actor loss', actor_loss.item(), global_step=ep)
+        self.writer.add_scalar('critic loss', critic_loss.item(), global_step=ep)
+
+
+    def target_update(self):
+        soft_update(self.actor, self.actor_target, self.tau)
+        soft_update(self.critic, self.critic_target, self.tau)
+
+
+class Actor(nn.Module):
+    def __init__(self, state_dim):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, 15),
+            nn.ReLU(),
+            nn.Linear(15, 30),
+            nn.ReLU(),
+            nn.Linear(30, 15),
+            nn.ReLU(),
+            nn.Linear(15, 1))
+
+    def forward(self, input):
+        return self.net(input)
+
+
+class Critic(nn.Module):
+    def __init__(self, state_dim, num_agents):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim + num_agents, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1))
+
+    def forward(self, state, action):
+        action = action.unsqueeze(1)
+        inputs = torch.cat((state, action), dim=1)
+        return self.net(inputs)

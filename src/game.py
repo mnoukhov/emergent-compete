@@ -109,7 +109,7 @@ class IteratedSenderRecver(gym.Env):
             'round': self.round,
             'send_target': self.send_target[0].item(),
             'recv_target': self.recv_target[0].item(),
-            'guess': action[0].item(),
+            'action': action[0].item(),
             'send_reward': rewards[0][0].item(),
             'recv_reward': rewards[1][0].item(),
             'send_diff': send_diffs[0].item(),
@@ -126,9 +126,9 @@ class IteratedSenderRecver(gym.Env):
         print('targetS {:<5.2f}   targetR {:<5.2f}'.format(
             self.round_info['send_target'],
             self.round_info['recv_target']))
-        print('message {:<5.2f}   guess   {:<4.2f}'.format(
+        print('message {:<5.2f}   action  {:<4.2f}'.format(
             message,
-            self.round_info['guess']))
+            self.round_info['action']))
         print('rewards  {: <5.2f}          {:<4.2f}'.format(
             self.round_info['send_reward'],
             self.round_info['recv_reward']))

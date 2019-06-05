@@ -6,68 +6,98 @@ import gin
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch import nn
+import torch.nn as nn
+import torch.nn.functional as F
 
-import agents
-import game
-from utils import running_mean, circle_diff
+
+import src.agents
+from src.agents import mode
+import src.maddpg
+import src.game
+from src.utils import running_mean, circle_diff
 
 
 @gin.configurable
 def train(Sender, Recver, env, episodes, render, log, savedir, device):
-    sender = Sender(mode=0, num_actions=env.observation_space.n).to(device)
-    recver = Recver(mode=1, num_actions=env.action_space.n).to(device)
+    sender = Sender(num_actions=env.observation_space.n,
+                    mode=mode.SENDER).to(device)
+    recver = Recver(num_actions=env.action_space.n,
+                    mode=mode.RECVER,
+                    opponent=sender).to(device)
 
     for e in range(episodes):
         target = env.reset()
         sender.reset()
         recver.reset()
+        recv_reward = torch.zeros(env.batch_size).to(device)
+        send_reward = torch.zeros(env.batch_size).to(device)
         prev_target = torch.zeros(env.batch_size).to(device)
         prev_message = torch.zeros(env.batch_size).to(device)
-        prev_guess = torch.zeros(env.batch_size).to(device)
+        prev_action = torch.zeros(env.batch_size).to(device)
         prev_recv_reward = torch.zeros(env.batch_size).to(device)
         prev_send_reward = torch.zeros(env.batch_size).to(device)
         prev2_target = torch.zeros(env.batch_size).to(device)
         prev2_message = torch.zeros(env.batch_size).to(device)
-        prev2_guess = torch.zeros(env.batch_size).to(device)
+        prev2_action = torch.zeros(env.batch_size).to(device)
         prev2_recv_reward = torch.zeros(env.batch_size).to(device)
         prev2_send_reward = torch.zeros(env.batch_size).to(device)
 
-        done = False
-        while not done:
+        for r in range(env.num_rounds):
+            batch_round = torch.full((env.batch_size,), r).long().to(device)
+            one_hot_round = F.one_hot(batch_round, env.num_rounds).float()
+
             send_state = torch.stack([target,
                                       prev_target, prev_message, prev_send_reward,
                                       prev2_target, prev2_message, prev2_send_reward],
                                      dim=1)
+            send_state = torch.cat((send_state, one_hot_round), dim=1)
             message = sender.action(send_state)
 
             recv_state = torch.stack([message,
-                                      prev_message, prev_guess, prev_recv_reward,
-                                      prev2_message, prev2_guess, prev2_recv_reward],
+                                      prev_message, prev_action, prev_recv_reward,
+                                      prev2_message, prev2_action, prev2_recv_reward],
                                      dim=1)
-            guess = recver.action(recv_state)
+            recv_state = torch.cat((recv_state, one_hot_round), dim=1)
+            if r > 0:
+                recver.memory.push(prev_recv_state, message, action,
+                                   send_reward, recv_reward, recv_state)
+            action = recver.action(recv_state)
 
             prev2_target = prev_target
             prev_target = target
-            target, (send_reward, recv_reward), done, diffs = env.step(guess)
-
             prev2_message = prev_message
-            prev2_guess = prev_guess
+            prev2_action = prev_action
             prev2_recv_reward = prev_recv_reward
             prev2_send_reward = prev_send_reward
             prev_message = message
-            prev_guess = guess
+            prev_action = action
             prev_recv_reward = recv_reward
             prev_send_reward = send_reward
+            prev_send_state = send_state
+            prev_recv_state = recv_state
+
+            target, (send_reward, recv_reward), done, _, = env.step(action)
 
             sender.rewards.append(send_reward)
             recver.rewards.append(recv_reward)
 
+            # sender.memory.push(prev_send_state, message, action,
+                               # send_reward, recv_reward, send_state)
+
             if render and e % render == 0:
                 env.render(message=message[0].item())
 
+        recv_state = torch.stack([torch.zeros(env.batch_size).to(device),
+                                  prev_message, prev_action, prev_recv_reward,
+                                  prev2_message, prev2_action, prev2_recv_reward],
+                                 dim=1)
+        one_hot_round = torch.zeros(env.batch_size, env.num_rounds)
+        recv_state = torch.cat((recv_state, one_hot_round), dim=1)
+        recver.memory.push(prev_recv_state, message, action,
+                           send_reward, recv_reward, recv_state)
+
         sender.update()
-        recver.update()
+        recver.update(e)
 
         if log and e % log == 0:
             print(f'EPISODE {e}')
@@ -76,6 +106,7 @@ def train(Sender, Recver, env, episodes, render, log, savedir, device):
             print('DIFF    {:2.2f}     {:2.2f}'.format(env.send_diffs[-1], env.recv_diffs[-1]))
             print('')
 
+    recver.writer.close()
     print('Game Over')
     x = list(range(episodes))
     plot_and_save(x, sender, recver, env, savedir)
@@ -142,22 +173,22 @@ def plot_and_save(x, sender, recver, env, savedir):
     # plt.show()
 
     # OUTPUT FOR 20
-    if '20' in sender.logger:
-        plt.plot(x, sender.logger['20'], label='sender')
-    plt.plot(x, recver.logger['20'], label='recver')
-    plt.title('Output for Round 1 Input=20')
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/20.png')
-    plt.show()
+    # if '20' in sender.logger:
+        # plt.plot(x, sender.logger['20'], label='sender')
+    # plt.plot(x, recver.logger['20'], label='recver')
+    # plt.title('Output for Round 1 Input=20')
+    # plt.legend()
+    # if savedir:
+        # plt.savefig(f'{savedir}/20.png')
+    # plt.show()
 
     # # ENTROPY
-    if 'entropy' in recver.logger:
-        plt.plot(x, recver.logger['entropy'], label='entropy')
-        plt.legend()
-        if savedir:
-            plt.savefig(f'{savedir}/entropy.png')
-        plt.show()
+    # if 'entropy' in recver.logger:
+        # plt.plot(x, recver.logger['entropy'], label='entropy')
+        # plt.legend()
+        # if savedir:
+            # plt.savefig(f'{savedir}/entropy.png')
+        # plt.show()
 
     print(gin.operative_config_str())
     if savedir:

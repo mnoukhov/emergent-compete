@@ -39,3 +39,15 @@ def circle_diff(x, y, circ):
     diff[diff > circ/2] -= circ
     diff[diff < -circ/2] += circ
     return diff
+
+
+def soft_update(src, trg, tau):
+    for trg_param, src_param in zip(trg.parameters(), src.parameters()):
+        trg_param.data.copy_((1 - tau) * trg_param.data + tau * src_param.data)
+
+
+def hard_update(source, target):
+    for trg_param, src_param in zip(trg.parameters(), src.parameters()):
+        trg_param.data.copy_(src_param.data)
+
+
