@@ -56,6 +56,7 @@ class Policy(nn.Module):
             for r, reward in enumerate(round_reward):
                 self.writer.add_scalar(f'reward/{r}', reward, global_step=ep)
 
+
 @gin.configurable
 class Human(Policy):
     def action(self, state, mode):
@@ -386,11 +387,10 @@ class DDPG(Policy):
 
         self.target_update()
 
+        self.logger['loss'].append(actor_loss.item() + critic_loss.item())
         if log:
-            self.logger['loss'].append(actor_loss.item() + critic_loss.item())
             self.writer.add_scalar('actor loss', actor_loss.item(), global_step=ep)
             self.writer.add_scalar('critic loss', critic_loss.item(), global_step=ep)
-            print(f'wrote ep {ep}')
 
     def target_update(self):
         soft_update(self.actor, self.actor_target, self.tau)

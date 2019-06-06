@@ -61,28 +61,6 @@ class IteratedSenderRecver(gym.Env):
             target = torch.tensor(0.)
         dist = torch.abs(circle_diff(pred, target, self.num_targets))
         return - dist
-        # dist = torch.min(diff, self.num_targets - diff)
-        # return (1 - (2 * dist / self.num_targets))
-
-    # def _reward(self, pred, target=None):
-        # if target is None:
-            # target = torch.tensor(0.)
-        # diff = torch.abs(pred - target)
-        # dist = torch.min(diff, self.num_targets - diff)
-        # return 1 - 2 * dist / self.num_targets
-
-    # def _reward(self, pred, target=None):
-        # if target is None:
-            # target = torch.tensor(0.)
-        # norm_dist = (pred - target) / self.num_targets
-        # radian_dist = 2*math.pi*norm_dist
-        # return 0.5*(1 + torch.cos(radian_dist))
-
-    # def _reward(self, pred, target=None):
-        # if target is None:
-            # target = torch.tensor(0.)
-        # norm_dist = (pred - target) / self.num_targets
-        # return 1-norm_dist**2
 
     def reset(self):
         self.round = 0
