@@ -3,8 +3,8 @@ train.Sender = @UniformBias
 train.Recver = @DDPG
 train.env = @IteratedSenderRecver()
 train.episodes = 15000
-train.render = 1000
-train.log = 100
+train.render_freq = 1000
+train.log_freq = 100
 train.savedir = None
 train.device = "cpu"
 

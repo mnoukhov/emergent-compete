@@ -29,7 +29,7 @@ class Policy(nn.Module):
             'ep_reward': [],
             'round_reward': [],
         }
-        self.writer = SummaryWriter(comment=mode.name)
+        self.writer = SummaryWriter(comment=f'/{mode.name}')
 
     def last(self, metric):
         values = self.logger.get(metric, None)
@@ -44,18 +44,17 @@ class Policy(nn.Module):
     def action(self, state):
         pass
 
-    def update(self, log=True):
+    def update(self, ep, log=True):
         rewards = torch.stack(self.rewards, dim=1)
         mean_reward = rewards.mean().item()
         round_reward = rewards.mean(dim=0).tolist()
         self.logger['ep_reward'].append(mean_reward)
         self.logger['round_reward'].append(round_reward)
 
-        if log:
-            self.writer.add_scalar('reward', mean_reward)
+        if log is True:
+            self.writer.add_scalar('reward', mean_reward, global_step=ep)
             for r, reward in enumerate(round_reward):
-                self.writer.add_scalar(f'reward/{r}', reward)
-            print("WROTE")
+                self.writer.add_scalar(f'reward/{r}', reward, global_step=ep)
 
 @gin.configurable
 class Human(Policy):
@@ -359,8 +358,8 @@ class DDPG(Policy):
 
         return action % self.num_actions
 
-    def update(self, ep, **kwargs):
-        super().update(**kwargs)
+    def update(self, ep, log):
+        super().update(ep, log)
         if ep < self.warmup_episodes:
             return
 
@@ -387,9 +386,11 @@ class DDPG(Policy):
 
         self.target_update()
 
-        self.logger['loss'].append(actor_loss.item() + critic_loss.item())
-        self.writer.add_scalar('actor loss', actor_loss.item(), global_step=ep)
-        self.writer.add_scalar('critic loss', critic_loss.item(), global_step=ep)
+        if log:
+            self.logger['loss'].append(actor_loss.item() + critic_loss.item())
+            self.writer.add_scalar('actor loss', actor_loss.item(), global_step=ep)
+            self.writer.add_scalar('critic loss', critic_loss.item(), global_step=ep)
+            print(f'wrote ep {ep}')
 
     def target_update(self):
         soft_update(self.actor, self.actor_target, self.tau)

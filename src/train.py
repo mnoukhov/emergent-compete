@@ -18,7 +18,7 @@ from src.utils import running_mean, circle_diff
 
 
 @gin.configurable
-def train(Sender, Recver, env, episodes, render, log, savedir, device):
+def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device):
     sender = Sender(num_actions=env.observation_space.n,
                     mode=mode.SENDER).to(device)
     recver = Recver(num_actions=env.action_space.n,
@@ -84,7 +84,7 @@ def train(Sender, Recver, env, episodes, render, log, savedir, device):
             # sender.memory.push(prev_send_state, message, action,
                                # send_reward, recv_reward, send_state)
 
-            if render and e % render == 0:
+            if render_freq and e % render_freq == 0:
                 env.render(message=message[0].item())
 
         recv_state = torch.stack([torch.zeros(env.batch_size).to(device),
@@ -96,10 +96,11 @@ def train(Sender, Recver, env, episodes, render, log, savedir, device):
         recver.memory.push(prev_recv_state, message, action,
                            send_reward, recv_reward, recv_state)
 
-        sender.update(log=(e % log == 0))
-        recver.update(e, log=(e % log == 0))
+        log_now = log_freq and (e % log_freq == 0)
+        sender.update(e, log=log_now)
+        recver.update(e, log=log_now)
 
-        if log and e % log == 0:
+        if log_now:
             print(f'EPISODE {e}')
             print('REWD    {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
             print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
@@ -200,9 +201,8 @@ def plot_and_save(x, sender, recver, env, savedir):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gin_file', nargs='+', default=['default.gin'])
-    parser.add_argument('--gin_param', nargs='+')
+    parser.add_argument('gin_param', nargs='+')
     args = parser.parse_args()
-
     gin_files = ['configs/{}'.format(gin_file) for gin_file in args.gin_file]
     gin.parse_config_files_and_bindings(gin_files, args.gin_param)
     train()
