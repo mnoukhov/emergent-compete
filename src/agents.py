@@ -327,14 +327,14 @@ class A2C(Policy):
 class DDPG(Policy):
     def __init__(self, num_actions, gamma, tau,
                  actor_lr, critic_lr, batch_size,
-                 warmup_episodes, **kwargs):
+                 warmup_episodes, device, **kwargs):
         super().__init__(**kwargs)
-        self.actor = Actor(12)
-        self.actor_target = deepcopy(self.actor)
+        self.actor = Actor(12).to(device)
+        self.actor_target = deepcopy(self.actor).to(device)
         self.actor_optimizer = Adam(self.actor.parameters(), lr=actor_lr)
 
-        self.critic = Critic(12,1)
-        self.critic_target = deepcopy(self.critic)
+        self.critic = Critic(12,1).to(device)
+        self.critic_target = deepcopy(self.critic).to(device)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=critic_lr)
 
         self.memory = ReplayBuffer()
@@ -345,16 +345,18 @@ class DDPG(Policy):
         self.tau = tau
         self.warmup_episodes = warmup_episodes
         self.batch_size = batch_size
+        self.device = device
         self.logger.update({
             'loss': [],
         })
 
     def action(self, state):
-        batch_size = state.shape[0]
+        state = state.to(self.device)
         with torch.no_grad():
-            action = self.actor(state).squeeze()
+            action = self.actor(state).squeeze().cpu()
 
         if self.training:
+            batch_size = state.shape[0]
             action += self.noise.sample(sample_shape=(batch_size,))
 
         return action % self.num_actions
@@ -366,6 +368,10 @@ class DDPG(Policy):
 
         # hardcoded for recver
         state, _, action, _, reward, next_state = self.memory.sample(self.batch_size)
+        state = state.to(self.device)
+        action = action.to(self.device)
+        reward = reward.to(self.device)
+        next_state = next_state.to(self.device)
 
         current_Q = self.critic(state, action)
         next_action = self.actor_target(next_state).squeeze()

@@ -20,30 +20,31 @@ from src.utils import running_mean, circle_diff
 @gin.configurable
 def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device):
     sender = Sender(num_actions=env.observation_space.n,
-                    mode=mode.SENDER).to(device)
+                    mode=mode.SENDER)
     recver = Recver(num_actions=env.action_space.n,
                     mode=mode.RECVER,
-                    opponent=sender).to(device)
+                    opponent=sender,
+                    device=device)
 
     for e in range(episodes):
         target = env.reset()
         sender.reset()
         recver.reset()
-        recv_reward = torch.zeros(env.batch_size).to(device)
-        send_reward = torch.zeros(env.batch_size).to(device)
-        prev_target = torch.zeros(env.batch_size).to(device)
-        prev_message = torch.zeros(env.batch_size).to(device)
-        prev_action = torch.zeros(env.batch_size).to(device)
-        prev_recv_reward = torch.zeros(env.batch_size).to(device)
-        prev_send_reward = torch.zeros(env.batch_size).to(device)
-        prev2_target = torch.zeros(env.batch_size).to(device)
-        prev2_message = torch.zeros(env.batch_size).to(device)
-        prev2_action = torch.zeros(env.batch_size).to(device)
-        prev2_recv_reward = torch.zeros(env.batch_size).to(device)
-        prev2_send_reward = torch.zeros(env.batch_size).to(device)
+        recv_reward = torch.zeros(env.batch_size)
+        send_reward = torch.zeros(env.batch_size)
+        prev_target = torch.zeros(env.batch_size)
+        prev_message = torch.zeros(env.batch_size)
+        prev_action = torch.zeros(env.batch_size)
+        prev_recv_reward = torch.zeros(env.batch_size)
+        prev_send_reward = torch.zeros(env.batch_size)
+        prev2_target = torch.zeros(env.batch_size)
+        prev2_message = torch.zeros(env.batch_size)
+        prev2_action = torch.zeros(env.batch_size)
+        prev2_recv_reward = torch.zeros(env.batch_size)
+        prev2_send_reward = torch.zeros(env.batch_size)
 
         for r in range(env.num_rounds):
-            batch_round = torch.full((env.batch_size,), r).long().to(device)
+            batch_round = torch.full((env.batch_size,), r).long()
             one_hot_round = F.one_hot(batch_round, env.num_rounds).float()
 
             send_state = torch.stack([target,
@@ -87,7 +88,7 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
             if render_freq and e % render_freq == 0:
                 env.render(message=message[0].item())
 
-        recv_state = torch.stack([torch.zeros(env.batch_size).to(device),
+        recv_state = torch.stack([torch.zeros(env.batch_size),
                                   prev_message, prev_action, prev_recv_reward,
                                   prev2_message, prev2_action, prev2_recv_reward],
                                  dim=1)
