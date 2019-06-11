@@ -21,7 +21,7 @@ ReplayBuffer.capacity = 256000
 # Agents
 UniformBias.bias = 0
 
-#DeterministicGradient.lr = 5e-4
+DeterministicGradient.lr = 5e-4
 
 #NaiveQNet.n = %n
 #NaiveQNet.gamma = 0.96

@@ -93,9 +93,10 @@ class UniformBias(Policy):
 
 @gin.configurable
 class DeterministicGradient(Policy):
-    def __init__(self, num_actions, lr):
-        super().__init__()
+    def __init__(self, num_actions, lr, device, **kwargs):
+        super().__init__(**kwargs)
         self.num_actions = num_actions
+        self.device = device
         self.policy = nn.Sequential(
             nn.Linear(7, 20),
             nn.ReLU(),
@@ -103,7 +104,7 @@ class DeterministicGradient(Policy):
             nn.ReLU(),
             nn.Linear(30, 15),
             nn.ReLU(),
-            nn.Linear(15, 1))
+            nn.Linear(15, 1)).to(device)
         self.optimizer = Adam(self.parameters(), lr=lr)
 
         self.logger.update({
@@ -125,11 +126,12 @@ class DeterministicGradient(Policy):
         del self.preact_grad[:]
 
     def action(self, state):
-        action = self.policy(state).squeeze()
+        state = state.to(self.device)
+        action = self.policy(state).squeeze().cpu()
         return action % self.num_actions
 
-    def update(self):
-        super().update()
+    def update(self, **kwargs):
+        super().update(**kwargs)
         loss = -torch.stack(self.rewards).mean()
         self.logger['loss'].append(loss.item())
         # start20 = self.policy(torch.tensor([20., 0., 0., 0., 0., 1.]))[0]
@@ -338,7 +340,7 @@ class DDPG(Policy):
         self.critic_optimizer = Adam(self.critic.parameters(), lr=critic_lr)
 
         self.memory = ReplayBuffer()
-        self.noise = Normal(0, scale=0.2)
+        self.noise = Normal(0, scale=0.1)
 
         self.num_actions = num_actions
         self.gamma = gamma
@@ -407,13 +409,15 @@ class Actor(nn.Module):
     def __init__(self, state_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim, 15),
+            nn.Linear(state_dim, 32),
             nn.ReLU(),
-            nn.Linear(15, 30),
+            nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(30, 15),
+            nn.Linear(64, 128),
             nn.ReLU(),
-            nn.Linear(15, 1))
+            nn.Linear(128, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1))
 
     def forward(self, input):
         return self.net(input)
@@ -423,13 +427,15 @@ class Critic(nn.Module):
     def __init__(self, state_dim, num_agents):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim + num_agents, 64),
+            nn.Linear(state_dim + num_agents, 32),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(32, 16),
+            nn.Linear(64, 128),
             nn.ReLU(),
-            nn.Linear(16, 1))
+            nn.Linear(128, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1))
 
     def forward(self, state, action):
         action = action.unsqueeze(1)

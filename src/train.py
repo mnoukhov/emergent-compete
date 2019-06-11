@@ -58,10 +58,10 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
                                       prev_message, prev_action, prev_recv_reward,
                                       prev2_message, prev2_action, prev2_recv_reward],
                                      dim=1)
-            recv_state = torch.cat((recv_state, one_hot_round), dim=1)
-            if r > 0:
-                recver.memory.push(prev_recv_state, message, action,
-                                   send_reward, recv_reward, recv_state)
+            # recv_state = torch.cat((recv_state, one_hot_round), dim=1)
+            # if r > 0:
+                # recver.memory.push(prev_recv_state, message, action,
+                                   # send_reward, recv_reward, recv_state)
             action = recver.action(recv_state)
 
             prev2_target = prev_target
@@ -88,18 +88,18 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
             if render_freq and e % render_freq == 0:
                 env.render(message=message[0].item())
 
-        recv_state = torch.stack([torch.zeros(env.batch_size),
-                                  prev_message, prev_action, prev_recv_reward,
-                                  prev2_message, prev2_action, prev2_recv_reward],
-                                 dim=1)
-        one_hot_round = torch.zeros(env.batch_size, env.num_rounds)
-        recv_state = torch.cat((recv_state, one_hot_round), dim=1)
-        recver.memory.push(prev_recv_state, message, action,
-                           send_reward, recv_reward, recv_state)
+        # recv_state = torch.stack([torch.zeros(env.batch_size),
+                                  # prev_message, prev_action, prev_recv_reward,
+                                  # prev2_message, prev2_action, prev2_recv_reward],
+                                 # dim=1)
+        # one_hot_round = torch.zeros(env.batch_size, env.num_rounds)
+        # recv_state = torch.cat((recv_state, one_hot_round), dim=1)
+        # recver.memory.push(prev_recv_state, message, action,
+                           # send_reward, recv_reward, recv_state)
 
         log_now = log_freq and (e % log_freq == 0)
-        sender.update(e, log=log_now)
-        recver.update(e, log=log_now)
+        sender.update(ep=e, log=log_now)
+        recver.update(ep=e, log=log_now)
 
         if log_now:
             print(f'EPISODE {e}')
