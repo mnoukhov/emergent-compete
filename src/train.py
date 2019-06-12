@@ -24,7 +24,8 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
                     device=device)
     recver = Recver(num_actions=env.action_space.n,
                     mode=mode.RECVER,
-                    device=device)
+                    device=device,
+                    opponent=sender)
 
     for e in range(episodes):
         target = env.reset()
