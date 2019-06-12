@@ -20,62 +20,61 @@ from src.utils import running_mean, circle_diff
 @gin.configurable
 def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device):
     sender = Sender(num_actions=env.observation_space.n,
-                    mode=mode.SENDER)
+                    mode=mode.SENDER,
+                    device=device)
     recver = Recver(num_actions=env.action_space.n,
                     mode=mode.RECVER,
-                    opponent=sender,
                     device=device)
 
     for e in range(episodes):
-        target = env.reset()
         sender.reset()
         recver.reset()
+        target = env.reset()
+
+        message = torch.zeros(env.batch_size)
+        action = torch.zeros(env.batch_size)
         recv_reward = torch.zeros(env.batch_size)
         send_reward = torch.zeros(env.batch_size)
+        prev_recv_reward = torch.zeros(env.batch_size)
+        prev_send_reward = torch.zeros(env.batch_size)
         prev_target = torch.zeros(env.batch_size)
         prev_message = torch.zeros(env.batch_size)
         prev_action = torch.zeros(env.batch_size)
-        prev_recv_reward = torch.zeros(env.batch_size)
-        prev_send_reward = torch.zeros(env.batch_size)
         prev2_target = torch.zeros(env.batch_size)
-        prev2_message = torch.zeros(env.batch_size)
-        prev2_action = torch.zeros(env.batch_size)
-        prev2_recv_reward = torch.zeros(env.batch_size)
-        prev2_send_reward = torch.zeros(env.batch_size)
+        send_state = None
+        recv_state = None
 
         for r in range(env.num_rounds):
+            prev2_message = prev_message
+            prev2_action = prev_action
+            prev_message = message
+            prev_action = action
+            prev_send_state = send_state
+            prev_recv_state = recv_state
             batch_round = torch.full((env.batch_size,), r).long()
             one_hot_round = F.one_hot(batch_round, env.num_rounds).float()
 
             send_state = torch.stack([target,
-                                      prev_target, prev_message, prev_send_reward,
-                                      prev2_target, prev2_message, prev2_send_reward],
+                                      prev_target, prev_message, send_reward,
+                                      prev2_target, prev2_message, prev_send_reward],
                                      dim=1)
-            send_state = torch.cat((send_state, one_hot_round), dim=1)
+            # send_state = torch.cat((send_state, one_hot_round), dim=1)
             message = sender.action(send_state)
 
             recv_state = torch.stack([message,
-                                      prev_message, prev_action, prev_recv_reward,
-                                      prev2_message, prev2_action, prev2_recv_reward],
+                                      prev_message, prev_action, recv_reward,
+                                      prev2_message, prev2_action, prev_recv_reward],
                                      dim=1)
             # recv_state = torch.cat((recv_state, one_hot_round), dim=1)
-            # if r > 0:
-                # recver.memory.push(prev_recv_state, message, action,
+            # if r > 2:
+                # recver.memory.push(prev_recv_state, prev_message, prev_action,
                                    # send_reward, recv_reward, recv_state)
             action = recver.action(recv_state)
 
             prev2_target = prev_target
             prev_target = target
-            prev2_message = prev_message
-            prev2_action = prev_action
-            prev2_recv_reward = prev_recv_reward
-            prev2_send_reward = prev_send_reward
-            prev_message = message
-            prev_action = action
             prev_recv_reward = recv_reward
             prev_send_reward = send_reward
-            prev_send_state = send_state
-            prev_recv_state = recv_state
 
             target, (send_reward, recv_reward), done, _, = env.step(action)
 
@@ -139,6 +138,7 @@ def plot_and_save(x, sender, recver, env, savedir):
     if savedir:
         plt.savefig(f'{savedir}/rewards.png')
     plt.show()
+    plt.clf()
 
     # REWARD PER ROUND
     sround = np.array(sender.logger['round_reward'])
@@ -148,10 +148,12 @@ def plot_and_save(x, sender, recver, env, savedir):
         # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
         # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
         plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
+    plt.axhline(oneshot_rew, label='one-shot baseline')
     plt.legend()
     if savedir:
         plt.savefig(f'{savedir}/round.png')
     plt.show()
+    plt.clf()
 
     # WEIGHTS
     # weights = np.array(recver.logger['weights'])

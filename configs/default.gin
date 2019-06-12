@@ -1,6 +1,6 @@
 # Main
 train.Sender = @UniformBias
-train.Recver = @DDPG
+train.Recver = @DeterministicGradient
 train.env = @IteratedSenderRecver()
 train.episodes = 15000
 train.render_freq = 1000
@@ -10,7 +10,7 @@ train.device = "cpu"
 
 # Game
 IteratedSenderRecver.batch_size = 128
-IteratedSenderRecver.num_rounds = 5
+IteratedSenderRecver.num_rounds = 10
 IteratedSenderRecver.num_targets = 100
 IteratedSenderRecver.max_bias = 10
 IteratedSenderRecver.min_bias = 0
@@ -21,7 +21,7 @@ ReplayBuffer.capacity = 256000
 # Agents
 UniformBias.bias = 0
 
-DeterministicGradient.lr = 5e-4
+DeterministicGradient.lr = 1e-4
 
 #NaiveQNet.n = %n
 #NaiveQNet.gamma = 0.96
@@ -47,7 +47,7 @@ DeterministicGradient.lr = 5e-4
 #A2C.min_std = 1.
 
 DDPG.actor_lr = 1e-4
-DDPG.critic_lr = 1e-3
+DDPG.critic_lr = 5e-4
 DDPG.gamma = 0.99
 DDPG.tau = 0.001
 DDPG.batch_size = 128

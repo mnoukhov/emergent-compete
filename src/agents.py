@@ -98,13 +98,13 @@ class DeterministicGradient(Policy):
         self.num_actions = num_actions
         self.device = device
         self.policy = nn.Sequential(
-            nn.Linear(7, 20),
+            nn.Linear(4, 16),
             nn.ReLU(),
-            nn.Linear(20, 30),
+            nn.Linear(16, 32),
             nn.ReLU(),
-            nn.Linear(30, 15),
+            nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Linear(15, 1)).to(device)
+            nn.Linear(16, 1)).to(device)
         self.optimizer = Adam(self.parameters(), lr=lr)
 
         self.logger.update({
@@ -126,11 +126,12 @@ class DeterministicGradient(Policy):
         del self.preact_grad[:]
 
     def action(self, state):
+        state = state[:,:4]
         state = state.to(self.device)
         action = self.policy(state).squeeze().cpu()
         return action % self.num_actions
 
-    def update(self, **kwargs):
+    def update(self, retain_graph=False, **kwargs):
         super().update(**kwargs)
         loss = -torch.stack(self.rewards).mean()
         self.logger['loss'].append(loss.item())
@@ -140,7 +141,7 @@ class DeterministicGradient(Policy):
         # self.logger['20 same'].append(same20.item())
 
         self.optimizer.zero_grad()
-        loss.backward()
+        loss.backward(retain_graph=retain_graph)
         norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
         self.logger['weight grad'].append(norm)
         # self.logger['weights'].append(self.policy.weight.data[0].tolist())
@@ -331,11 +332,11 @@ class DDPG(Policy):
                  actor_lr, critic_lr, batch_size,
                  warmup_episodes, device, **kwargs):
         super().__init__(**kwargs)
-        self.actor = Actor(12).to(device)
+        self.actor = Actor(7).to(device)
         self.actor_target = deepcopy(self.actor).to(device)
         self.actor_optimizer = Adam(self.actor.parameters(), lr=actor_lr)
 
-        self.critic = Critic(12,1).to(device)
+        self.critic = Critic(7,1).to(device)
         self.critic_target = deepcopy(self.critic).to(device)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=critic_lr)
 
@@ -374,6 +375,7 @@ class DDPG(Policy):
         action = action.to(self.device)
         reward = reward.to(self.device)
         next_state = next_state.to(self.device)
+
 
         current_Q = self.critic(state, action)
         next_action = self.actor_target(next_state).squeeze()
