@@ -391,15 +391,13 @@ class Actor(nn.Module):
     def __init__(self, state_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim, 32),
+            nn.Linear(state_dim, 16),
             nn.ReLU(),
-            nn.Linear(32, 64),
+            nn.Linear(16, 32),
             nn.ReLU(),
-            nn.Linear(64, 128),
+            nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Linear(128, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1))
+            nn.Linear(16, 1))
 
     def forward(self, input):
         return self.net(input)
@@ -409,15 +407,15 @@ class Critic(nn.Module):
     def __init__(self, state_dim, num_agents):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim + num_agents, 32),
+            nn.Linear(state_dim + num_agents, 16),
+            nn.ReLU(),
+            nn.Linear(16, 32),
             nn.ReLU(),
             nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(64, 128),
+            nn.Linear(64, 16),
             nn.ReLU(),
-            nn.Linear(128, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1))
+            nn.Linear(16, 1))
 
     def forward(self, state, action):
         action = action.unsqueeze(1)

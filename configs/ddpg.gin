@@ -5,7 +5,7 @@ UniformBias.bias = 0
 
 ReplayBuffer.capacity = 256000
 
-DDPG.actor_lr = 1e-4
+DDPG.actor_lr = 5e-4
 DDPG.critic_lr = 5e-4
 DDPG.gamma = 0.99
 DDPG.tau = 0.001

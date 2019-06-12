@@ -66,9 +66,9 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
                                       prev2_message, prev2_action, prev_recv_reward],
                                      dim=1)
             # recv_state = torch.cat((recv_state, one_hot_round), dim=1)
-            # if r > 2:
-                # recver.memory.push(prev_recv_state, prev_message, prev_action,
-                                   # send_reward, recv_reward, recv_state)
+            if r > 0:
+                recver.memory.push(prev_recv_state, prev_message, prev_action,
+                                   send_reward, recv_reward, recv_state)
             action = recver.action(recv_state)
 
             prev2_target = prev_target
