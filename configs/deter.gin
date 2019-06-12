@@ -2,4 +2,5 @@ train.Sender = @UniformBias
 train.Recver = @DeterministicGradient
 
 UniformBias.bias = 0
-DeterministicGradient.lr = 1e-4
+DeterministicGradient.lr = 1e-3
+DeterministicGradient.weight_decay = 0

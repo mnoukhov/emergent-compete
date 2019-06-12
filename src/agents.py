@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
@@ -23,13 +24,13 @@ mode = Enum('Player', 'SENDER RECVER')
 class Policy(nn.Module):
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
-        self.rewards = []
         self.mode = mode
         self.logger = {
             'ep_reward': [],
             'round_reward': [],
         }
-        self.writer = SummaryWriter(comment=f'/{mode.name}')
+        self.writer = SummaryWriter(comment=f'/{mode.name}/')
+
 
     def last(self, metric):
         values = self.logger.get(metric, None)
@@ -38,14 +39,11 @@ class Policy(nn.Module):
         else:
             return 0.
 
-    def reset(self):
-        del self.rewards[:]
-
     def action(self, state):
         pass
 
-    def update(self, ep, log=True):
-        rewards = torch.stack(self.rewards, dim=1)
+    def update(self, ep, rewards, log=True):
+        rewards = torch.stack(rewards, dim=1)
         mean_reward = rewards.mean().item()
         round_reward = rewards.mean(dim=0).tolist()
         self.logger['ep_reward'].append(mean_reward)
@@ -93,60 +91,44 @@ class UniformBias(Policy):
 
 @gin.configurable
 class DeterministicGradient(Policy):
-    def __init__(self, num_actions, lr, device, **kwargs):
+    def __init__(self, num_actions, lr, weight_decay, device, **kwargs):
         super().__init__(**kwargs)
         self.num_actions = num_actions
         self.device = device
         self.policy = nn.Sequential(
-            nn.Linear(4, 16),
+            nn.Linear(7, 16),
             nn.ReLU(),
             nn.Linear(16, 32),
             nn.ReLU(),
             nn.Linear(32, 16),
             nn.ReLU(),
             nn.Linear(16, 1)).to(device)
-        self.optimizer = Adam(self.parameters(), lr=lr)
+        self.optimizer = Adam(self.parameters(), lr=lr, weight_decay=weight_decay)
+        self.scheduler = ReduceLROnPlateau(self.optimizer)
 
         self.logger.update({
             'loss': [],
-            '20 start': [],
-            '20 same': [],
-            'weight grad': [],
-            'weights': [],
-            'biases': [],
         })
-        self.weight_grad = []
-        self.act_grad = []
-        self.preact_grad = []
-
-    def reset(self):
-        super().reset()
-        del self.weight_grad[:]
-        del self.act_grad[:]
-        del self.preact_grad[:]
 
     def action(self, state):
-        state = state[:,:4]
         state = state.to(self.device)
         action = self.policy(state).squeeze().cpu()
         return action % self.num_actions
 
-    def update(self, retain_graph=False, **kwargs):
-        super().update(**kwargs)
-        loss = -torch.stack(self.rewards).mean()
-        self.logger['loss'].append(loss.item())
-        # start20 = self.policy(torch.tensor([20., 0., 0., 0., 0., 1.]))[0]
-        # self.logger['20 start'].append(start20.item())
-        # same20 = self.policy(torch.tensor([20., 10., 10., 10., 10., 0.,]))[0]
-        # self.logger['20 same'].append(same20.item())
+    def update(self, ep, rewards, log, retain_graph=False, **kwargs):
+        super().update(ep, rewards, log, **kwargs)
+        loss = -torch.stack(rewards).mean()
 
         self.optimizer.zero_grad()
         loss.backward(retain_graph=retain_graph)
         norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
-        self.logger['weight grad'].append(norm)
-        # self.logger['weights'].append(self.policy.weight.data[0].tolist())
-        # self.logger['biases'].append(self.policy.bias.data[0].tolist())
         self.optimizer.step()
+
+        self.logger['loss'].append(loss.item())
+        if log:
+            self.scheduler.step(loss)
+            self.writer.add_scalar('loss', loss.item(), global_step=ep)
+            self.writer.add_scalar('grad norm', norm, global_step=ep)
 
 
 @gin.configurable
@@ -179,11 +161,6 @@ class PolicyGradient(Policy):
         self.entropy = 0
         # self.policy.weight.register_hook(self.weight_grad.append)
 
-    def reset(self):
-        super().reset()
-        del self.log_probs[:]
-        del self.weight_grad[:]
-        self.entropy = 0
 
     def action(self, state):
         out = self.policy(state)
@@ -217,6 +194,9 @@ class PolicyGradient(Policy):
         # self.logger['grad'].append(torch.stack(self.weight_grad).norm(2).item())
         self.logger['entropy'].append(entropy.item())
         # self.logger['20'].append(out20.item())
+
+        self.entropy = 0
+        self.log_probs = []
 
 
 @gin.configurable
@@ -364,8 +344,8 @@ class DDPG(Policy):
 
         return action % self.num_actions
 
-    def update(self, ep, log):
-        super().update(ep, log)
+    def update(self, ep, rewards, log):
+        super().update(ep, rewards, log)
         if ep < self.warmup_episodes:
             return
 

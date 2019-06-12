@@ -27,9 +27,9 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
                     device=device)
 
     for e in range(episodes):
-        sender.reset()
-        recver.reset()
         target = env.reset()
+        send_rewards = []
+        recv_rewards = []
 
         message = torch.zeros(env.batch_size)
         action = torch.zeros(env.batch_size)
@@ -51,8 +51,8 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
             prev_action = action
             prev_send_state = send_state
             prev_recv_state = recv_state
-            batch_round = torch.full((env.batch_size,), r).long()
-            one_hot_round = F.one_hot(batch_round, env.num_rounds).float()
+            # batch_round = torch.full((env.batch_size,), r).long()
+            # one_hot_round = F.one_hot(batch_round, env.num_rounds).float()
 
             send_state = torch.stack([target,
                                       prev_target, prev_message, send_reward,
@@ -78,8 +78,8 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
 
             target, (send_reward, recv_reward), done, _, = env.step(action)
 
-            sender.rewards.append(send_reward)
-            recver.rewards.append(recv_reward)
+            send_rewards.append(send_reward)
+            recv_rewards.append(recv_reward)
 
             # sender.memory.push(prev_send_state, message, action,
                                # send_reward, recv_reward, send_state)
@@ -97,8 +97,8 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
                            # send_reward, recv_reward, recv_state)
 
         log_now = log_freq and (e % log_freq == 0)
-        sender.update(ep=e, log=log_now)
-        recver.update(ep=e, log=log_now)
+        sender.update(e, send_rewards, log_now)
+        recver.update(e, recv_rewards, log_now)
 
         if log_now:
             print(f'EPISODE {e}')
