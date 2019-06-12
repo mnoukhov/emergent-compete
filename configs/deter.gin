@@ -1,7 +1,5 @@
-# Main
 train.Sender = @UniformBias
 train.Recver = @DeterministicGradient
 
-# Agents
 UniformBias.bias = 0
 DeterministicGradient.lr = 1e-4

@@ -206,6 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('--gin_file', nargs='+', default=['default.gin'])
     parser.add_argument('gin_param', nargs='+')
     args = parser.parse_args()
+    args.gin_file.append('base.gin')
     gin_files = ['configs/{}'.format(gin_file) for gin_file in args.gin_file]
     gin.parse_config_files_and_bindings(gin_files, args.gin_param)
     train()
