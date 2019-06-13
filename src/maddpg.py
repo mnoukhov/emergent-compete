@@ -55,25 +55,24 @@ class Critic(nn.Module):
 @gin.configurable
 class MADDPG(Policy):
     def __init__(self, num_agents, num_actions, state_dim,
-                 tau, gamma, lr, batch_size, device, opponent,
-                 warmup_episodes, target_update_freq, **kwargs):
+                 tau, gamma, lr, batch_size, device, warmup_episodes,
+                 target_update_freq, opponent=None,**kwargs):
         super().__init__(**kwargs)
         self.num_agents = num_agents
         self.num_actions = num_actions
         self.tau = tau
         self.gamma = gamma
-        self.opponent = opponent
         self.warmup_episodes = warmup_episodes
         self.target_update_freq = target_update_freq
         self.device = device
         self.batch_size = batch_size
 
-        self.actor = Actor(state_dim).to(device)
-        self.actor_target = deepcopy(self.actor).to(device)
+        self.actor = Actor(state_dim)
+        self.actor_target = deepcopy(self.actor)
         self.actor_optim = Adam(self.actor.parameters(), lr)
 
-        self.critic = Critic(num_agents, state_dim).to(device)
-        self.critic_target = deepcopy(self.critic).to(device)
+        self.critic = Critic(num_agents, state_dim)
+        self.critic_target = deepcopy(self.critic)
         self.critic_optim = Adam(self.critic.parameters(), lr)
 
         self.memory = ReplayBuffer()
@@ -82,13 +81,13 @@ class MADDPG(Policy):
         self.logger.update({'loss': []})
 
     def action(self, state):
-        state = state.to(self.device).detach()
         with torch.no_grad():
-            action = self.actor(state).squeeze().cpu()
+            action = self.actor(state).squeeze()
 
         if self.training:
+            device = state.device
             batch_size = state.shape[0]
-            action += self.noise.sample(sample_shape=(batch_size,))
+            action += self.noise.sample(sample_shape=(batch_size,)).to(device)
 
         return action % self.num_actions
 
@@ -111,12 +110,13 @@ class MADDPG(Policy):
             next_message = self.actor_target(state).squeeze()
             next_recv_state = state.clone()
             next_recv_state[:,0] = next_message
-            next_action = self.opponent.action(next_recv_state).squeeze().detach()
+            next_action = self.opponent.action(next_recv_state)
             reward = send_reward
         else:
             next_message = next_state[:,0]
             next_action = self.actor_target(state).squeeze()
             reward = recv_reward
+
         target_Q = reward.unsqueeze(1) + self.gamma * self.critic_target(next_state, next_message, next_action)
         critic_loss = F.mse_loss(current_Q, target_Q)
 
@@ -129,7 +129,7 @@ class MADDPG(Policy):
         if self.mode == mode.SENDER:
             new_message = self.actor(state).squeeze()
             new_state[:,0] = new_message
-            new_action = self.opponent(new_state).squeeze()
+            new_action = self.opponent.action(new_state)
         else:
             new_message = new_state[:,0]
             new_action = self.actor(new_state).squeeze()

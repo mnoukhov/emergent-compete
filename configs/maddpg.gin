@@ -1,4 +1,4 @@
-train.Sender = @UniformBias
+train.Sender = @MADDPG
 train.Recver = @MADDPG
 
 UniformBias.bias = 0

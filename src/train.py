@@ -21,27 +21,29 @@ from src.utils import running_mean, circle_diff
 def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device):
     sender = Sender(num_actions=env.observation_space.n,
                     mode=mode.SENDER,
-                    device=device)
+                    device=device).to(device)
     recver = Recver(num_actions=env.action_space.n,
                     mode=mode.RECVER,
-                    device=device,
-                    opponent=sender)
+                    device=device).to(device)
+    sender.opponent = recver
+    recver.opponent = sender
+
 
     for e in range(episodes):
-        target = env.reset()
+        target = env.reset().to(device)
         send_rewards = []
         recv_rewards = []
 
-        message = torch.zeros(env.batch_size)
-        action = torch.zeros(env.batch_size)
-        recv_reward = torch.zeros(env.batch_size)
-        send_reward = torch.zeros(env.batch_size)
-        prev_recv_reward = torch.zeros(env.batch_size)
-        prev_send_reward = torch.zeros(env.batch_size)
-        prev_target = torch.zeros(env.batch_size)
-        prev_message = torch.zeros(env.batch_size)
-        prev_action = torch.zeros(env.batch_size)
-        prev2_target = torch.zeros(env.batch_size)
+        message = torch.zeros(env.batch_size).to(device)
+        action = torch.zeros(env.batch_size).to(device)
+        recv_reward = torch.zeros(env.batch_size).to(device)
+        send_reward = torch.zeros(env.batch_size).to(device)
+        prev_recv_reward = torch.zeros(env.batch_size).to(device)
+        prev_send_reward = torch.zeros(env.batch_size).to(device)
+        prev_target = torch.zeros(env.batch_size).to(device)
+        prev_message = torch.zeros(env.batch_size).to(device)
+        prev_action = torch.zeros(env.batch_size).to(device)
+        prev2_target = torch.zeros(env.batch_size).to(device)
         send_state = None
         recv_state = None
 
@@ -52,50 +54,41 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
             prev_action = action
             prev_send_state = send_state
             prev_recv_state = recv_state
-            # batch_round = torch.full((env.batch_size,), r).long()
-            # one_hot_round = F.one_hot(batch_round, env.num_rounds).float()
 
             send_state = torch.stack([target,
                                       prev_target, prev_message, send_reward,
                                       prev2_target, prev2_message, prev_send_reward],
                                      dim=1)
-            # send_state = torch.cat((send_state, one_hot_round), dim=1)
             message = sender.action(send_state)
 
             recv_state = torch.stack([message,
                                       prev_message, prev_action, recv_reward,
                                       prev2_message, prev2_action, prev_recv_reward],
                                      dim=1)
-            # recv_state = torch.cat((recv_state, one_hot_round), dim=1)
-            if r > 0:
-                recver.memory.push(prev_recv_state, prev_message, prev_action,
-                                   send_reward, recv_reward, recv_state)
             action = recver.action(recv_state)
+
+            if r > 0 and hasattr(sender, 'memory'):
+                sender.memory.push(prev_send_state.cpu(), prev_message.cpu(), prev_action.cpu(),
+                                    send_reward.cpu(), recv_reward.cpu(), send_state.cpu())
+            if r > 0 and hasattr(recver, 'memory'):
+                recver.memory.push(prev_recv_state.cpu(), prev_message.cpu(), prev_action.cpu(),
+                                    send_reward.cpu(), recv_reward.cpu(), recv_state.cpu())
 
             prev2_target = prev_target
             prev_target = target
             prev_recv_reward = recv_reward
             prev_send_reward = send_reward
 
-            target, (send_reward, recv_reward), done, _, = env.step(action)
+            target, (send_reward, recv_reward), done, _, = env.step(action.cpu())
+            target = target.to(device)
+            send_reward = send_reward.to(device)
+            recv_reward = recv_reward.to(device)
 
             send_rewards.append(send_reward)
             recv_rewards.append(recv_reward)
 
-            # sender.memory.push(prev_send_state, message, action,
-                               # send_reward, recv_reward, send_state)
-
             if render_freq and e % render_freq == 0:
                 env.render(message=message[0].item())
-
-        # recv_state = torch.stack([torch.zeros(env.batch_size),
-                                  # prev_message, prev_action, prev_recv_reward,
-                                  # prev2_message, prev2_action, prev2_recv_reward],
-                                 # dim=1)
-        # one_hot_round = torch.zeros(env.batch_size, env.num_rounds)
-        # recv_state = torch.cat((recv_state, one_hot_round), dim=1)
-        # recver.memory.push(prev_recv_state, message, action,
-                           # send_reward, recv_reward, recv_state)
 
         log_now = log_freq and (e % log_freq == 0)
         sender.update(e, send_rewards, log_now)
