@@ -102,7 +102,7 @@ class DeterministicGradient(Policy):
             nn.ReLU(),
             nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Linear(16, 1)).to(device)
+            nn.Linear(16, 1))
         self.optimizer = Adam(self.parameters(), lr=lr, weight_decay=weight_decay)
         self.scheduler = ReduceLROnPlateau(self.optimizer)
 
@@ -111,16 +111,15 @@ class DeterministicGradient(Policy):
         })
 
     def action(self, state):
-        state = state.to(self.device)
-        action = self.policy(state).squeeze().cpu()
+        action = self.policy(state).squeeze()
         return action % self.num_actions
 
-    def update(self, ep, rewards, log, retain_graph=False, **kwargs):
+    def update(self, ep, rewards, log, **kwargs):
         super().update(ep, rewards, log, **kwargs)
         loss = -torch.stack(rewards).mean()
 
         self.optimizer.zero_grad()
-        loss.backward(retain_graph=retain_graph)
+        loss.backward(retain_graph=(self.mode == mode.SENDER))
         norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
         self.optimizer.step()
 

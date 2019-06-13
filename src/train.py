@@ -80,7 +80,7 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
             prev_send_reward = send_reward
 
             target, (send_reward, recv_reward), done, _, = env.step(action.cpu())
-            target = target.to(device)
+            target = target.to(device) if target is not None else None
             send_reward = send_reward.to(device)
             recv_reward = recv_reward.to(device)
 
