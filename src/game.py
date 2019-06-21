@@ -71,6 +71,7 @@ class IteratedSenderRecver(gym.Env):
         return self.send_targets[0]
 
     def step(self, action):
+        action = action % self.num_targets
         send_target = self.send_targets[self.round]
         recv_target = self.recv_targets[self.round]
         rewards = [self._reward(action, send_target),

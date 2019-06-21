@@ -1,0 +1,10 @@
+# Main
+train.Sender = @UniformBias
+train.Recver = @CategoricalPG
+
+# Agents
+UniformBias.bias = 0
+CategoricalPG.lr = 1e-4
+CategoricalPG.ent_reg = 1e-5
+CategoricalPG.weight_decay = 0
+CategoricalPG.gamma = 0.999

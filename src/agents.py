@@ -29,7 +29,7 @@ class Policy(nn.Module):
             'ep_reward': [],
             'round_reward': [],
         }
-        self.writer = SummaryWriter(comment=f'/{mode.name}/')
+        # self.writer = SummaryWriter(comment=f'/{mode.name}/')
 
 
     def last(self, metric):
@@ -49,10 +49,10 @@ class Policy(nn.Module):
         self.logger['ep_reward'].append(mean_reward)
         self.logger['round_reward'].append(round_reward)
 
-        if log is True:
-            self.writer.add_scalar('reward', mean_reward, global_step=ep)
-            for r, reward in enumerate(round_reward):
-                self.writer.add_scalar(f'reward/{r}', reward, global_step=ep)
+        # if log is True:
+            # self.writer.add_scalar('reward', mean_reward, global_step=ep)
+            # for r, reward in enumerate(round_reward):
+                # self.writer.add_scalar(f'reward/{r}', reward, global_step=ep)
 
 
 @gin.configurable
@@ -102,7 +102,7 @@ class DeterministicGradient(Policy):
             nn.ReLU(),
             nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Linear(16, 1))
+            nn.Linear(16, 1)).to(device)
         self.optimizer = Adam(self.parameters(), lr=lr, weight_decay=weight_decay)
         self.scheduler = ReduceLROnPlateau(self.optimizer)
 
@@ -112,7 +112,7 @@ class DeterministicGradient(Policy):
 
     def action(self, state):
         action = self.policy(state).squeeze()
-        return action % self.num_actions
+        return action
 
     def update(self, ep, rewards, log, **kwargs):
         super().update(ep, rewards, log, **kwargs)
@@ -126,14 +126,14 @@ class DeterministicGradient(Policy):
         self.logger['loss'].append(loss.item())
         if log:
             self.scheduler.step(loss)
-            self.writer.add_scalar('loss', loss.item(), global_step=ep)
-            self.writer.add_scalar('grad norm', norm, global_step=ep)
+            # self.writer.add_scalar('loss', loss.item(), global_step=ep)
+            # self.writer.add_scalar('grad norm', norm, global_step=ep)
 
 
 @gin.configurable
 class PolicyGradient(Policy):
-    def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, min_std):
-        super().__init__()
+    def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, min_std=0, **kwargs):
+        super().__init__(**kwargs)
         self.num_actions = num_actions
         self.gamma = gamma
         self.min_std = torch.tensor(min_std)
@@ -159,7 +159,6 @@ class PolicyGradient(Policy):
         self.weight_grad = []
         self.entropy = 0
         # self.policy.weight.register_hook(self.weight_grad.append)
-
 
     def action(self, state):
         out = self.policy(state)
@@ -199,17 +198,27 @@ class PolicyGradient(Policy):
 
 
 @gin.configurable
-class CategoricalPG(PolicyGradient):
-    def __init__(self, num_actions, *args, **kwargs):
-        super().__init__(num_actions, *args, **kwargs)
+class CategoricalPG(Policy):
+    def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, device, **kwargs):
+        super().__init__(**kwargs)
         self.policy = nn.Sequential(
-            nn.Linear(7, 20),
+            nn.Linear(7, 32),
             nn.ReLU(),
-            nn.Linear(20, 40),
+            nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(40, 40),
+            nn.Linear(64, 128),
             nn.ReLU(),
-            nn.Linear(40, self.num_actions))
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, num_actions)).to(device)
+        self.optimizer = Adam(self.policy.parameters(), lr=lr,
+                              weight_decay=weight_decay)
+
+        self.ent_reg = ent_reg
+        self.gamma = gamma
+        self.entropy = 0
+        self.log_probs = []
+        self.logger.update({'loss': []})
 
     def action(self, state):
         logits = self.policy(state)
@@ -222,6 +231,23 @@ class CategoricalPG(PolicyGradient):
         self.log_probs.append(dist.log_prob(sample))
 
         return sample.float()
+
+    def update(self, ep, rewards, log):
+        super().update(ep, rewards, log)
+        self.optimizer.zero_grad()
+
+        returns = torch.stack(discount_return(rewards, self.gamma), dim=1)
+        logprobs = torch.stack(self.log_probs, dim=1)
+        entropy = torch.mean(self.entropy)
+        loss = -(returns * logprobs).mean() - self.ent_reg * entropy
+
+        loss.backward()
+        self.optimizer.step()
+
+        self.logger['loss'].append(loss.item())
+
+        self.entropy = 0
+        self.log_probs = []
 
 
 @gin.configurable

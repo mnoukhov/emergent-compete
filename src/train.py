@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 import src.agents
 from src.agents import mode
 import src.maddpg
@@ -21,13 +20,12 @@ from src.utils import running_mean, circle_diff
 def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device):
     sender = Sender(num_actions=env.observation_space.n,
                     mode=mode.SENDER,
-                    device=device).to(device)
+                    device=device)
     recver = Recver(num_actions=env.action_space.n,
                     mode=mode.RECVER,
-                    device=device).to(device)
+                    device=device)
     sender.opponent = recver
     recver.opponent = sender
-
 
     for e in range(episodes):
         target = env.reset().to(device)
@@ -48,10 +46,10 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
         recv_state = None
 
         for r in range(env.num_rounds):
-            prev2_message = prev_message
-            prev2_action = prev_action
-            prev_message = message
-            prev_action = action
+            prev2_message = prev_message.detach()
+            prev2_action = prev_action.detach()
+            prev_message = message.detach()
+            prev_action = action.detach()
             prev_send_state = send_state
             prev_recv_state = recv_state
 
@@ -76,8 +74,8 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
 
             prev2_target = prev_target
             prev_target = target
-            prev_recv_reward = recv_reward
-            prev_send_reward = send_reward
+            prev_recv_reward = recv_reward.detach()
+            prev_send_reward = send_reward.detach()
 
             target, (send_reward, recv_reward), done, _, = env.step(action.cpu())
             target = target.to(device) if target is not None else None
@@ -101,8 +99,8 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
             print('DIFF    {:2.2f}     {:2.2f}'.format(env.send_diffs[-1], env.recv_diffs[-1]))
             print('')
 
-    sender.writer.close()
-    recver.writer.close()
+    # sender.writer.close()
+    # recver.writer.close()
     print('Game Over')
     x = list(range(episodes))
     plot_and_save(x, sender, recver, env, savedir)
@@ -200,7 +198,7 @@ if __name__ == '__main__':
     parser.add_argument('--gin_file', nargs='+', default=['default.gin'])
     parser.add_argument('gin_param', nargs='+')
     args = parser.parse_args()
-    args.gin_file.append('base.gin')
-    gin_files = ['configs/{}'.format(gin_file) for gin_file in args.gin_file]
-    gin.parse_config_files_and_bindings(gin_files, args.gin_param)
+    gin_files = ['base.gin'] + args.gin_file
+    gin_paths = [f'configs/{gin_file}' for gin_file in gin_files]
+    gin.parse_config_files_and_bindings(gin_paths, args.gin_param)
     train()
