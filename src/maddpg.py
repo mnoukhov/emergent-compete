@@ -67,12 +67,12 @@ class MADDPG(Policy):
         self.device = device
         self.batch_size = batch_size
 
-        self.actor = Actor(state_dim)
-        self.actor_target = deepcopy(self.actor)
+        self.actor = Actor(state_dim).to(device)
+        self.actor_target = deepcopy(self.actor).to(device)
         self.actor_optim = Adam(self.actor.parameters(), lr)
 
-        self.critic = Critic(num_agents, state_dim)
-        self.critic_target = deepcopy(self.critic)
+        self.critic = Critic(num_agents, state_dim).to(device)
+        self.critic_target = deepcopy(self.critic).to(device)
         self.critic_optim = Adam(self.critic.parameters(), lr)
 
         self.memory = ReplayBuffer()
@@ -89,9 +89,9 @@ class MADDPG(Policy):
             batch_size = state.shape[0]
             action += self.noise.sample(sample_shape=(batch_size,)).to(device)
 
-        return action % self.num_actions
+        return action
 
-    def update(self, ep, rewards, log):
+    def update(self, ep, rewards, log, **kwargs):
         super().update(ep, rewards, log)
         if ep < self.warmup_episodes:
             return

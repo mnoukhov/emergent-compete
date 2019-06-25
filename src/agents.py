@@ -96,7 +96,7 @@ class DeterministicGradient(Policy):
         self.num_actions = num_actions
         self.device = device
         self.policy = nn.Sequential(
-            nn.Linear(7, 16),
+            nn.Linear(1, 16),
             nn.ReLU(),
             nn.Linear(16, 32),
             nn.ReLU(),
@@ -114,12 +114,12 @@ class DeterministicGradient(Policy):
         action = self.policy(state).squeeze()
         return action
 
-    def update(self, ep, rewards, log, **kwargs):
-        super().update(ep, rewards, log, **kwargs)
+    def update(self, ep, rewards, log, retain_graph=False):
+        super().update(ep, rewards, log)
         loss = -torch.stack(rewards).mean()
 
         self.optimizer.zero_grad()
-        loss.backward(retain_graph=(self.mode == mode.SENDER))
+        loss.backward(retain_graph=retain_graph)
         norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
         self.optimizer.step()
 
@@ -202,15 +202,13 @@ class CategoricalPG(Policy):
     def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, device, **kwargs):
         super().__init__(**kwargs)
         self.policy = nn.Sequential(
-            nn.Linear(7, 32),
+            nn.Linear(1, 32),
             nn.ReLU(),
             nn.Linear(32, 64),
             nn.ReLU(),
             nn.Linear(64, 128),
             nn.ReLU(),
-            nn.Linear(128, 256),
-            nn.ReLU(),
-            nn.Linear(256, num_actions)).to(device)
+            nn.Linear(128, num_actions)).to(device)
         self.optimizer = Adam(self.policy.parameters(), lr=lr,
                               weight_decay=weight_decay)
 
@@ -234,13 +232,14 @@ class CategoricalPG(Policy):
 
     def update(self, ep, rewards, log):
         super().update(ep, rewards, log)
-        self.optimizer.zero_grad()
 
-        returns = torch.stack(discount_return(rewards, self.gamma), dim=1)
+        # returns = torch.stack(discount_return(rewards, self.gamma), dim=1)
+        returns = torch.stack(rewards, dim=1)
         logprobs = torch.stack(self.log_probs, dim=1)
         entropy = torch.mean(self.entropy)
         loss = -(returns * logprobs).mean() - self.ent_reg * entropy
 
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 

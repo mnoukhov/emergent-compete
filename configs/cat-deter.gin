@@ -1,0 +1,13 @@
+train.Sender = @CategoricalPG
+train.Recver = @DeterministicGradient
+
+CategoricalPG.lr = 1e-3
+CategoricalPG.ent_reg = 1e-5
+CategoricalPG.weight_decay = 0
+CategoricalPG.gamma = 0.999
+DeterministicGradient.lr = 1e-3
+DeterministicGradient.weight_decay = 0
+
+# Game Changing
+IteratedSenderRecver.max_bias = 3
+IteratedSenderRecver.min_bias = 0

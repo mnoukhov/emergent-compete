@@ -15,7 +15,6 @@ import numpy as np
 import torch
 
 from src.utils import circle_diff
-# import math
 
 
 class DiscreteRange(Discrete):
@@ -51,10 +50,10 @@ class IteratedSenderRecver(gym.Env):
         self.recv_diffs = []
 
     def _generate_bias(self):
-        return self.bias_space.low + torch.rand(size=(1, self.batch_size)) * self.bias_space.range
+        return torch.randint(low=self.bias_space.low, high=self.bias_space.high+1, size=(1, self.batch_size)).float()
 
     def _generate_targets(self):
-        return torch.rand(size=(self.num_rounds, self.batch_size)) * self.action_space.n
+        return torch.randint(high=self.action_space.n, size=(self.num_rounds, self.batch_size)).float()
 
     def _reward(self, pred, target=None):
         if target is None:
@@ -97,7 +96,7 @@ class IteratedSenderRecver(gym.Env):
 
         self.round += 1
         next_target = None if done else self.send_targets[self.round]
-        return next_target, rewards, done, [send_diffs, recv_diffs]
+        return next_target, rewards, done
 
     def render(self, message=-1.0):
         print('--- round {} ---'.format(self.round_info['round']))
