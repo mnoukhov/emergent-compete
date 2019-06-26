@@ -38,7 +38,8 @@ class IteratedSenderRecver(gym.Env):
                  num_rounds,
                  num_targets,
                  max_bias,
-                 min_bias=0):
+                 min_bias=0,
+                 device='cpu'):
         self.num_rounds = num_rounds
         self.num_targets = num_targets
         self.action_space = Discrete(num_targets)
@@ -50,10 +51,15 @@ class IteratedSenderRecver(gym.Env):
         self.recv_diffs = []
 
     def _generate_bias(self):
-        return torch.randint(low=self.bias_space.low, high=self.bias_space.high+1, size=(1, self.batch_size)).float()
+        return torch.randint(low=self.bias_space.low,
+                             high=self.bias_space.high+1,
+                             size=(1, self.batch_size),
+                             dtype=torch.float)
 
     def _generate_targets(self):
-        return torch.randint(high=self.action_space.n, size=(self.num_rounds, self.batch_size)).float()
+        return torch.randint(high=self.action_space.n,
+                             size=(self.num_rounds, self.batch_size),
+                             dtype=torch.float)
 
     def _reward(self, pred, target=None):
         if target is None:
@@ -70,7 +76,6 @@ class IteratedSenderRecver(gym.Env):
         return self.send_targets[0]
 
     def step(self, action):
-        action = action % self.num_targets
         send_target = self.send_targets[self.round]
         recv_target = self.recv_targets[self.round]
         rewards = [self._reward(action, send_target),
@@ -95,7 +100,7 @@ class IteratedSenderRecver(gym.Env):
         }
 
         self.round += 1
-        next_target = None if done else self.send_targets[self.round]
+        next_target = self.send_targets[self.round] if not done else None
         return next_target, rewards, done
 
     def render(self, message=-1.0):

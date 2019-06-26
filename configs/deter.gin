@@ -6,5 +6,5 @@ DeterministicGradient.lr = 1e-3
 DeterministicGradient.weight_decay = 0
 
 # Game Changing
-IteratedSenderRecver.max_bias = 0
+IteratedSenderRecver.max_bias = 5
 IteratedSenderRecver.min_bias = 0

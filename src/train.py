@@ -17,7 +17,8 @@ from src.utils import running_mean, circle_diff
 
 
 @gin.configurable
-def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device):
+def train(Env, Sender, Recver, episodes, render_freq, log_freq, savedir, device):
+    env = Env(device=device)
     sender = Sender(num_actions=env.observation_space.n,
                     mode=mode.SENDER,
                     device=device)
@@ -32,16 +33,16 @@ def train(Sender, Recver, env, episodes, render_freq, log_freq, savedir, device)
         send_rewards = []
         recv_rewards = []
 
-        message = torch.zeros(env.batch_size).to(device)
-        action = torch.zeros(env.batch_size).to(device)
-        recv_reward = torch.zeros(env.batch_size).to(device)
-        send_reward = torch.zeros(env.batch_size).to(device)
-        prev_recv_reward = torch.zeros(env.batch_size).to(device)
-        prev_send_reward = torch.zeros(env.batch_size).to(device)
-        prev_target = torch.zeros(env.batch_size).to(device)
-        prev_message = torch.zeros(env.batch_size).to(device)
-        prev_action = torch.zeros(env.batch_size).to(device)
-        prev2_target = torch.zeros(env.batch_size).to(device)
+        message = torch.zeros(env.batch_size, device=device)
+        action = torch.zeros(env.batch_size, device=device)
+        recv_reward = torch.zeros(env.batch_size, device=device)
+        send_reward = torch.zeros(env.batch_size, device=device)
+        prev_recv_reward = torch.zeros(env.batch_size, device=device)
+        prev_send_reward = torch.zeros(env.batch_size, device=device)
+        prev_target = torch.zeros(env.batch_size, device=device)
+        prev_message = torch.zeros(env.batch_size, device=device)
+        prev_action = torch.zeros(env.batch_size, device=device)
+        prev2_target = torch.zeros(env.batch_size, device=device)
         send_state = None
         recv_state = None
 
@@ -200,5 +201,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
     gin_files = ['base.gin'] + args.gin_file
     gin_paths = [f'configs/{gin_file}' for gin_file in gin_files]
+    # change device to torch.device
+    gin.config.register_finalize_hook(
+        lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
     gin.parse_config_files_and_bindings(gin_paths, args.gin_param)
     train()
+    # gin.clear_config()
+    # gin.config._REGISTRY._selector_map.pop('__main__.train')
+

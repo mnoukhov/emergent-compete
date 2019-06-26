@@ -1,5 +1,5 @@
 # Main
-train.env = @IteratedSenderRecver()
+train.Env = @IteratedSenderRecver
 train.episodes = 15000
 train.render_freq = 1000
 train.log_freq = 100
