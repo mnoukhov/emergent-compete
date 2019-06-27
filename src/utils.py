@@ -38,7 +38,7 @@ def circle_diff(x, y, circ):
     diff = x - y
     diff[diff > circ/2] -= circ
     diff[diff < -circ/2] += circ
-    return diff
+    return abs(diff)
 
 
 def soft_update(src, trg, tau):

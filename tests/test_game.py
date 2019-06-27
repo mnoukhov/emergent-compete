@@ -77,14 +77,14 @@ class TestReward(unittest.TestCase):
         pred = target + self.isr.num_targets // 2
         reward = self.isr._reward(pred, target)
 
-        self.assertEqual(reward, 0.)
+        self.assertEqual(reward, - self.isr.num_targets // 2)
 
     def test_max(self):
         target = torch.tensor(40.)
         pred = target
         reward = self.isr._reward(pred, target)
 
-        self.assertEqual(reward, 1.)
+        self.assertEqual(reward, 0.)
 
 
 class TestBias(unittest.TestCase):
@@ -103,7 +103,7 @@ class TestBias(unittest.TestCase):
         action = torch.tensor([0.])
         done = False
         while not done:
-            _, _, done, _ = self.isr.step(action)
+            _, _, done = self.isr.step(action)
             self.assertEqual(bias, self.isr.bias)
 
     def test_episode_bias_changes(self):
@@ -129,7 +129,9 @@ class TestBias(unittest.TestCase):
         self.assertAlmostEqual(sum(biases) / 1000, avg_bias, delta=0.1)
 
     def test_bias_is_diff(self):
-        diff = circle_diff(self.isr.send_target, self.isr.recv_target, self.isr.num_targets)
+        send_target = self.isr.send_targets[0]
+        recv_target = self.isr.recv_targets[0]
+        diff = circle_diff(send_target, recv_target, self.isr.num_targets)
         self.assertEqual(self.isr.bias, diff)
 
 
@@ -146,9 +148,9 @@ class TestStep(unittest.TestCase):
 
     def test_reward(self):
         action = torch.tensor([20.])
-        send_target = self.isr.send_target
-        recv_target = self.isr.recv_target
-        _, rewards, _, _ = self.isr.step(action)
+        send_target = self.isr.send_targets[0]
+        recv_target = self.isr.recv_targets[0]
+        _, rewards, _, = self.isr.step(action)
         send_reward, recv_reward = rewards
 
         exp_send_reward = self.isr._reward(send_target, action)

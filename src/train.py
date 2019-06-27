@@ -54,16 +54,16 @@ def train(Env, Sender, Recver, episodes, render_freq, log_freq, savedir, device)
             prev_send_state = send_state
             prev_recv_state = recv_state
 
-            # send_state = torch.stack([target, prev_target, prev_message, send_reward,
-                                      # prev2_target, prev2_message, prev_send_reward],
-                                     # dim=1)
-            send_state = target.unsqueeze(1)
+            send_state = torch.stack([target, prev_target, prev_message, send_reward,
+                                      prev2_target, prev2_message, prev_send_reward],
+                                     dim=1)
+            # send_state = target.unsqueeze(1)
             message = sender.action(send_state)
 
-            # recv_state = torch.stack([message, prev_message, prev_action, recv_reward,
-                                      # prev2_message, prev2_action, prev_recv_reward],
-                                     # dim=1)
-            recv_state = message.unsqueeze(1)
+            recv_state = torch.stack([message, prev_message, prev_action, recv_reward,
+                                      prev2_message, prev2_action, prev_recv_reward],
+                                     dim=1)
+            # recv_state = message.unsqueeze(1)
             action = recver.action(recv_state)
 
             if r > 0 and hasattr(sender, 'memory'):
@@ -78,7 +78,7 @@ def train(Env, Sender, Recver, episodes, render_freq, log_freq, savedir, device)
             prev_recv_reward = recv_reward.detach()
             prev_send_reward = send_reward.detach()
 
-            target, (send_reward, recv_reward), done, = env.step(action.cpu())
+            target, (send_reward, recv_reward), done, = env.step(action)
             target = target.to(device) if target is not None else None
             send_reward = send_reward.to(device)
             recv_reward = recv_reward.to(device)

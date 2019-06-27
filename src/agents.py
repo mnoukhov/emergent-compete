@@ -96,7 +96,7 @@ class DeterministicGradient(Policy):
         self.num_actions = num_actions
         self.device = device
         self.policy = nn.Sequential(
-            nn.Linear(1, 16),
+            nn.Linear(7, 16),
             nn.ReLU(),
             nn.Linear(16, 32),
             nn.ReLU(),
@@ -368,7 +368,7 @@ class DDPG(Policy):
 
         return action % self.num_actions
 
-    def update(self, ep, rewards, log):
+    def update(self, ep, rewards, log, **kwargs):
         super().update(ep, rewards, log)
         if ep < self.warmup_episodes:
             return
@@ -402,9 +402,9 @@ class DDPG(Policy):
         self.target_update()
 
         self.logger['loss'].append(actor_loss.item() + critic_loss.item())
-        if log:
-            self.writer.add_scalar('actor loss', actor_loss.item(), global_step=ep)
-            self.writer.add_scalar('critic loss', critic_loss.item(), global_step=ep)
+        # if log:
+            # self.writer.add_scalar('actor loss', actor_loss.item(), global_step=ep)
+            # self.writer.add_scalar('critic loss', critic_loss.item(), global_step=ep)
 
     def target_update(self):
         soft_update(self.actor, self.actor_target, self.tau)

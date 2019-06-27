@@ -46,6 +46,7 @@ class IteratedSenderRecver(gym.Env):
         self.observation_space = Discrete(num_targets)
         self.bias_space = DiscreteRange(min_bias, max_bias)
         self.batch_size = batch_size
+        self.device = device
 
         self.send_diffs = []
         self.recv_diffs = []
@@ -64,8 +65,7 @@ class IteratedSenderRecver(gym.Env):
     def _reward(self, pred, target=None):
         if target is None:
             target = torch.tensor(0.)
-        dist = torch.abs(circle_diff(pred, target, self.num_targets))
-        return - dist
+        return -circle_diff(pred, target, self.num_targets)
 
     def reset(self):
         self.round = 0
@@ -76,17 +76,16 @@ class IteratedSenderRecver(gym.Env):
         return self.send_targets[0]
 
     def step(self, action):
+        action = action.cpu()
         send_target = self.send_targets[self.round]
         recv_target = self.recv_targets[self.round]
         rewards = [self._reward(action, send_target),
                    self._reward(action, recv_target)]
         done = (self.round >= self.num_rounds - 1)
 
-        send_diffs = circle_diff(send_target, action, self.num_targets)
-        recv_diffs = circle_diff(recv_target, action, self.num_targets)
         if done:
-            self.send_diffs.append(send_diffs.abs().mean().item())
-            self.recv_diffs.append(recv_diffs.abs().mean().item())
+            self.send_diffs.append(rewards[0].mean().item())
+            self.recv_diffs.append(rewards[1].mean().item())
 
         self.round_info = {
             'round': self.round,
@@ -95,8 +94,8 @@ class IteratedSenderRecver(gym.Env):
             'action': action[0].item(),
             'send_reward': rewards[0][0].item(),
             'recv_reward': rewards[1][0].item(),
-            'send_diff': send_diffs[0].item(),
-            'recv_diff': recv_diffs[0].item(),
+            # 'send_diff': send_diffs[0].item(),
+            # 'recv_diff': recv_diffs[0].item(),
         }
 
         self.round += 1
@@ -114,7 +113,6 @@ class IteratedSenderRecver(gym.Env):
         print('rewards  {: <5.2f}          {:<4.2f}'.format(
             self.round_info['send_reward'],
             self.round_info['recv_reward']))
-        if self.round_info['send_diff']:
-            print('diffs    {: <5.2f}          {:<4.2f}'.format(
-                self.round_info['send_diff'],
-                self.round_info['recv_diff']))
+        # print('diffs    {: <5.2f}          {:<4.2f}'.format(
+            # self.round_info['send_diff'],
+            # self.round_info['recv_diff']))

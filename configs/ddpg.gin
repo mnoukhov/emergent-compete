@@ -7,7 +7,7 @@ ReplayBuffer.capacity = 1000000
 
 DDPG.actor_lr = 5e-4
 DDPG.critic_lr = 5e-4
-DDPG.gamma = 0.99
+DDPG.gamma = 0
 DDPG.tau = 0.001
 DDPG.batch_size = 128
 DDPG.warmup_episodes = 100
