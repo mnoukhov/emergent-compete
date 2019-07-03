@@ -1,5 +1,6 @@
 # Main
 train.Env = @IteratedSenderRecver
+train.vocab_size = 256
 train.episodes = 15000
 train.render_freq = 1000
 train.log_freq = 100

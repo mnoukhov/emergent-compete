@@ -38,15 +38,13 @@ class IteratedSenderRecver(gym.Env):
                  num_rounds,
                  num_targets,
                  max_bias,
-                 min_bias=0,
-                 device='cpu'):
+                 min_bias=0):
         self.num_rounds = num_rounds
         self.num_targets = num_targets
         self.action_space = Discrete(num_targets)
         self.observation_space = Discrete(num_targets)
         self.bias_space = DiscreteRange(min_bias, max_bias)
         self.batch_size = batch_size
-        self.device = device
 
         self.send_diffs = []
         self.recv_diffs = []
@@ -76,7 +74,7 @@ class IteratedSenderRecver(gym.Env):
         return self.send_targets[0]
 
     def step(self, action):
-        action = action.cpu()
+        action = action.cpu() % self.num_targets
         send_target = self.send_targets[self.round]
         recv_target = self.recv_targets[self.round]
         rewards = [self._reward(action, send_target),

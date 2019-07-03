@@ -17,16 +17,19 @@ from src.utils import running_mean, circle_diff
 
 
 @gin.configurable
-def train(Env, Sender, Recver, episodes, render_freq, log_freq, savedir, device):
-    env = Env(device=device)
-    sender = Sender(num_actions=env.observation_space.n,
+def train(Env, Sender, Recver, episodes, vocab_size, render_freq, log_freq,
+          savedir, device):
+    env = Env()
+    sender = Sender(input_size=1,
+                    output_size=vocab_size,
                     mode=mode.SENDER,
                     device=device)
-    recver = Recver(num_actions=env.action_space.n,
+    recver = Recver(input_size=vocab_size,
+                    output_size=1,
                     mode=mode.RECVER,
                     device=device)
-    sender.opponent = recver
-    recver.opponent = sender
+    # sender.opponent = recver
+    # recver.opponent = sender
 
     for e in range(episodes):
         target = env.reset().to(device)
@@ -54,16 +57,16 @@ def train(Env, Sender, Recver, episodes, render_freq, log_freq, savedir, device)
             prev_send_state = send_state
             prev_recv_state = recv_state
 
-            send_state = torch.stack([target, prev_target, prev_message, send_reward,
-                                      prev2_target, prev2_message, prev_send_reward],
-                                     dim=1)
-            # send_state = target.unsqueeze(1)
+            # send_state = torch.stack([target, prev_target, prev_message, send_reward,
+                                      # prev2_target, prev2_message, prev_send_reward],
+                                     # dim=1)
+            send_state = target.unsqueeze(1)
             message = sender.action(send_state)
 
-            recv_state = torch.stack([message, prev_message, prev_action, recv_reward,
-                                      prev2_message, prev2_action, prev_recv_reward],
-                                     dim=1)
-            # recv_state = message.unsqueeze(1)
+            # recv_state = torch.stack([message, prev_message, prev_action, recv_reward,
+                                      # prev2_message, prev2_action, prev_recv_reward],
+                                     # dim=1)
+            recv_state = message.unsqueeze(1)
             action = recver.action(recv_state)
 
             if r > 0 and hasattr(sender, 'memory'):

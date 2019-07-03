@@ -42,7 +42,7 @@ class Policy(nn.Module):
     def action(self, state):
         pass
 
-    def update(self, ep, rewards, log=True):
+    def update(self, ep, rewards, log=True, **kwargs):
         rewards = torch.stack(rewards, dim=1)
         mean_reward = rewards.mean().item()
         round_reward = rewards.mean(dim=0).tolist()
@@ -78,32 +78,31 @@ class NoComm(Policy):
 
 @gin.configurable
 class UniformBias(Policy):
-    def __init__(self, num_actions, bias, **kwargs):
+    def __init__(self, bias, **kwargs):
         super().__init__(**kwargs)
         self.bias = Uniform(0, bias)
-        self.num_actions = num_actions
 
     def action(self, state):
         target = state[:,0]
-        message = target + self.bias.sample()
-        return message % self.num_actions
+        output = target + self.bias.sample()
+        return output.float()
 
 
 @gin.configurable
 class DeterministicGradient(Policy):
-    def __init__(self, num_actions, lr, weight_decay, device, **kwargs):
+    def __init__(self, input_size, output_size, lr, weight_decay, device, **kwargs):
         super().__init__(**kwargs)
-        self.num_actions = num_actions
-        self.device = device
         self.policy = nn.Sequential(
-            nn.Linear(7, 16),
+            nn.Embedding(input_size, 32),
             nn.ReLU(),
-            nn.Linear(16, 32),
+            nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, 1)).to(device)
-        self.optimizer = Adam(self.parameters(), lr=lr, weight_decay=weight_decay)
+            nn.Linear(64, output_size)).to(device)
+        # self.policy = nn.Sequential(
+            # nn.Embedding(input_size, 30),
+            # nn.LeakyReLU(),
+            # nn.Linear(30, output_size)).to(device)
+        self.optimizer = Adam(self.policy.parameters(), lr=lr, weight_decay=weight_decay)
         self.scheduler = ReduceLROnPlateau(self.optimizer)
 
         self.logger.update({
@@ -120,7 +119,7 @@ class DeterministicGradient(Policy):
 
         self.optimizer.zero_grad()
         loss.backward(retain_graph=retain_graph)
-        norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
+        # norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
         self.optimizer.step()
 
         self.logger['loss'].append(loss.item())
@@ -199,42 +198,39 @@ class PolicyGradient(Policy):
 
 @gin.configurable
 class CategoricalPG(Policy):
-    def __init__(self, num_actions, lr, weight_decay, gamma, ent_reg, device, **kwargs):
+    def __init__(self, input_size, output_size, lr, weight_decay, gamma, ent_reg, device, **kwargs):
         super().__init__(**kwargs)
         self.policy = nn.Sequential(
-            nn.Linear(1, 32),
+            nn.Linear(input_size, 32),
             nn.ReLU(),
             nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(64, 128),
-            nn.ReLU(),
-            nn.Linear(128, num_actions)).to(device)
+            nn.Linear(64, output_size),
+            nn.Softmax(dim=1)).to(device)
         self.optimizer = Adam(self.policy.parameters(), lr=lr,
                               weight_decay=weight_decay)
 
         self.ent_reg = ent_reg
         self.gamma = gamma
         self.entropy = 0
+        self.baseline = 0
         self.log_probs = []
         self.logger.update({'loss': []})
 
     def action(self, state):
-        logits = self.policy(state)
-        probs = F.softmax(logits, dim=1)
-
+        probs = self.policy(state)
         dist = Categorical(probs)
         sample = dist.sample()
 
         self.entropy += dist.entropy()
         self.log_probs.append(dist.log_prob(sample))
 
-        return sample.float()
+        return sample
 
-    def update(self, ep, rewards, log):
+    def update(self, ep, rewards, log, **kwargs):
         super().update(ep, rewards, log)
 
-        # returns = torch.stack(discount_return(rewards, self.gamma), dim=1)
-        returns = torch.stack(rewards, dim=1)
+        returns = torch.stack(discount_return(rewards, self.gamma), dim=1) - self.baseline
         logprobs = torch.stack(self.log_probs, dim=1)
         entropy = torch.mean(self.entropy)
         loss = -(returns * logprobs).mean() - self.ent_reg * entropy
@@ -244,6 +240,9 @@ class CategoricalPG(Policy):
         self.optimizer.step()
 
         self.logger['loss'].append(loss.item())
+
+        if self.training:
+            self.baseline += (returns.mean().item() - self.baseline) / (ep + 1)
 
         self.entropy = 0
         self.log_probs = []

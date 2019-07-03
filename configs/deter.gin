@@ -2,7 +2,7 @@ train.Sender = @DeterministicGradient
 train.Recver = @DeterministicGradient
 
 UniformBias.bias = 0
-DeterministicGradient.lr = 1e-3
+DeterministicGradient.lr = 5e-4
 DeterministicGradient.weight_decay = 0
 
 # Game Changing
