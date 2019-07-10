@@ -3,8 +3,6 @@ import math
 import os
 
 import gin
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,12 +11,12 @@ import src.agents
 from src.agents import mode
 import src.maddpg
 import src.game
-from src.utils import running_mean, circle_diff
+from src.utils import save, plot
 
 
 @gin.configurable
 def train(Env, Sender, Recver, episodes, vocab_size, render_freq, log_freq,
-          savedir, device):
+          savedir, loaddir, device):
     env = Env()
     sender = Sender(input_size=1,
                     output_size=vocab_size,
@@ -28,8 +26,11 @@ def train(Env, Sender, Recver, episodes, vocab_size, render_freq, log_freq,
                     output_size=1,
                     mode=mode.RECVER,
                     device=device)
-    # sender.opponent = recver
-    # recver.opponent = sender
+
+    if loaddir:
+        model_save = torch.load(f'results/{loaddir}/models.save')
+        sender.load_state_dict(model_save['sender'])
+        recver.load_state_dict(model_save['recver'])
 
     for e in range(episodes):
         target = env.reset().to(device)
@@ -66,7 +67,7 @@ def train(Env, Sender, Recver, episodes, vocab_size, render_freq, log_freq,
             # recv_state = torch.stack([message, prev_message, prev_action, recv_reward,
                                       # prev2_message, prev2_action, prev_recv_reward],
                                      # dim=1)
-            recv_state = message.unsqueeze(1)
+            recv_state = message
             action = recver.action(recv_state)
 
             if r > 0 and hasattr(sender, 'memory'):
@@ -107,94 +108,17 @@ def train(Env, Sender, Recver, episodes, vocab_size, render_freq, log_freq,
     # recver.writer.close()
     print('Game Over')
     x = list(range(episodes))
-    plot_and_save(x, sender, recver, env, savedir)
 
-
-def plot_and_save(x, sender, recver, env, savedir):
     if savedir is not None:
         savedir = os.path.join('results', savedir)
         os.makedirs(savedir, exist_ok=True)
 
-    # REWARDS
-    srew = np.array(sender.logger['ep_reward'])
-    rrew = np.array(recver.logger['ep_reward'])
-    avg_rew = (rrew + srew) / 2
-    plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
-    plt.plot(x, running_mean(srew, 100), label='sender')
-    plt.plot(x, running_mean(rrew, 100), label='recver')
-    nocomm_loss = torch.tensor(env.observation_space.n / 4)
-    nocomm_rew = env._reward(nocomm_loss)
-    oneshot_loss = (env.bias_space.range) / 4
-    oneshot_rew = env._reward(oneshot_loss)
-    perfect_rew = env._reward(oneshot_loss / env.num_rounds)
-    plt.axhline(nocomm_rew, label='nocomm baseline')
-    plt.axhline(oneshot_rew, label='one-shot baseline')
-    plt.axhline(perfect_rew, label='perfect agent')
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/rewards.png')
-    plt.show()
-    plt.clf()
-
-    # REWARD PER ROUND
-    sround = np.array(sender.logger['round_reward'])
-    rround = np.array(recver.logger['round_reward'])
-    avg_round = (sround + rround) / 2
-    for r in range(env.num_rounds):
-        # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
-        # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
-        plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
-    plt.axhline(oneshot_rew, label='one-shot baseline')
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/round.png')
-    plt.show()
-    plt.clf()
-
-    # WEIGHTS
-    # weights = np.array(recver.logger['weights'])
-    # biases = np.array(recver.logger['biases'])[:,np.newaxis]
-    # num_weights = weights.shape[1]
-    # for i in range(num_weights):
-        # plt.plot(x, running_mean(weights[:,i]), label=f'weight {i}')
-        # plt.plot(x, running_mean(biases[:,i]), label=f'bias {i}')
-    # plt.title('Weights')
-    # plt.legend()
-    # if savedir:
-        # plt.savefig(f'{savedir}/weights.png')
-    # plt.show()
-
-    # # ABS DIFF AT ROUND 5
-    # plt.plot(x, running_mean(env.send_diffs), label='sender')
-    # plt.plot(x, running_mean(env.recv_diffs), label='recver')
-    # plt.title('Absolute diff at Round 5')
-    # plt.legend()
-    # if savedir:
-        # plt.savefig(f'{savedir}/diff.png')
-    # plt.show()
-
-    # OUTPUT FOR 20
-    # if '20' in sender.logger:
-        # plt.plot(x, sender.logger['20'], label='sender')
-    # plt.plot(x, recver.logger['20'], label='recver')
-    # plt.title('Output for Round 1 Input=20')
-    # plt.legend()
-    # if savedir:
-        # plt.savefig(f'{savedir}/20.png')
-    # plt.show()
-
-    # # ENTROPY
-    # if 'entropy' in recver.logger:
-        # plt.plot(x, recver.logger['entropy'], label='entropy')
-        # plt.legend()
-        # if savedir:
-            # plt.savefig(f'{savedir}/entropy.png')
-        # plt.show()
+        plot(x, sender, recver, env, savedir)
+        save(sender, recver, env, savedir)
 
     print(gin.operative_config_str())
-    if savedir:
-        with open(f'{savedir}/config.gin','w') as f:
-            f.write(gin.operative_config_str())
+
+
 
 
 if __name__ == '__main__':

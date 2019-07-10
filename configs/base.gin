@@ -5,6 +5,7 @@ train.episodes = 15000
 train.render_freq = 1000
 train.log_freq = 100
 train.savedir = None
+train.loaddir = None
 train.device = "cpu"
 
 # Game

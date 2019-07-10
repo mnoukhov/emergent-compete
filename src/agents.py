@@ -71,12 +71,6 @@ class Human(Policy):
 
 
 @gin.configurable
-class NoComm(Policy):
-    def action(self, state):
-        return torch.ones_like(state[0])
-
-
-@gin.configurable
 class UniformBias(Policy):
     def __init__(self, bias, **kwargs):
         super().__init__(**kwargs)
@@ -107,6 +101,7 @@ class DeterministicGradient(Policy):
 
         self.logger.update({
             'loss': [],
+            '20': [],
         })
 
     def action(self, state):
@@ -123,6 +118,8 @@ class DeterministicGradient(Policy):
         self.optimizer.step()
 
         self.logger['loss'].append(loss.item())
+        input20 = torch.tensor(20).to(loss.device)
+        self.logger['20'].append(self.policy(input20).item())
         if log:
             self.scheduler.step(loss)
             # self.writer.add_scalar('loss', loss.item(), global_step=ep)
@@ -212,17 +209,21 @@ class CategoricalPG(Policy):
 
         self.ent_reg = ent_reg
         self.gamma = gamma
-        self.entropy = 0
         self.baseline = 0
+        self.entropy = []
         self.log_probs = []
         self.logger.update({'loss': []})
 
     def action(self, state):
         probs = self.policy(state)
         dist = Categorical(probs)
-        sample = dist.sample()
+        self.entropy.append(dist.entropy())
 
-        self.entropy += dist.entropy()
+        if self.training:
+            sample = dist.sample()
+        else:
+            sample = probs.argmax(dim=1)
+
         self.log_probs.append(dist.log_prob(sample))
 
         return sample
@@ -232,8 +233,8 @@ class CategoricalPG(Policy):
 
         returns = torch.stack(discount_return(rewards, self.gamma), dim=1) - self.baseline
         logprobs = torch.stack(self.log_probs, dim=1)
-        entropy = torch.mean(self.entropy)
-        loss = -(returns * logprobs).mean() - self.ent_reg * entropy
+        entropy = torch.stack(self.entropy, dim=1).mean()
+        loss = (-logprobs * returns).mean() - self.ent_reg * entropy
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -244,7 +245,7 @@ class CategoricalPG(Policy):
         if self.training:
             self.baseline += (returns.mean().item() - self.baseline) / (ep + 1)
 
-        self.entropy = 0
+        self.entropy = []
         self.log_probs = []
 
 

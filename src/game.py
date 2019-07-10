@@ -40,7 +40,7 @@ class IteratedSenderRecver(gym.Env):
                  max_bias,
                  min_bias=0):
         self.num_rounds = num_rounds
-        self.num_targets = num_targets
+        self.num_targets = torch.tensor(num_targets, dtype=torch.float)
         self.action_space = Discrete(num_targets)
         self.observation_space = Discrete(num_targets)
         self.bias_space = DiscreteRange(min_bias, max_bias)
@@ -59,6 +59,7 @@ class IteratedSenderRecver(gym.Env):
         return torch.randint(high=self.action_space.n,
                              size=(self.num_rounds, self.batch_size),
                              dtype=torch.float)
+
 
     def _reward(self, pred, target=None):
         if target is None:
