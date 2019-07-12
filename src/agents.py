@@ -86,6 +86,7 @@ class UniformBias(Policy):
 class DeterministicGradient(Policy):
     def __init__(self, input_size, output_size, lr, weight_decay, device, **kwargs):
         super().__init__(**kwargs)
+        self.input_size = input_size
         self.policy = nn.Sequential(
             nn.Embedding(input_size, 32),
             nn.ReLU(),
@@ -101,7 +102,9 @@ class DeterministicGradient(Policy):
 
         self.logger.update({
             'loss': [],
-            '20': [],
+            '0': [],
+            '15': [],
+            '30': [],
         })
 
     def action(self, state):
@@ -118,8 +121,10 @@ class DeterministicGradient(Policy):
         self.optimizer.step()
 
         self.logger['loss'].append(loss.item())
-        input20 = torch.tensor(20).to(loss.device)
-        self.logger['20'].append(self.policy(input20).item())
+        for sample_in in [0, 15, 30]:
+            tensor_in = torch.tensor(sample_in).to(loss.device)
+            self.logger[str(sample_in)].append(self.policy(tensor_in).item())
+
         if log:
             self.scheduler.step(loss)
             # self.writer.add_scalar('loss', loss.item(), global_step=ep)
@@ -197,6 +202,7 @@ class PolicyGradient(Policy):
 class CategoricalPG(Policy):
     def __init__(self, input_size, output_size, lr, weight_decay, gamma, ent_reg, device, **kwargs):
         super().__init__(**kwargs)
+        self.input_size = input_size
         self.policy = nn.Sequential(
             nn.Linear(input_size, 32),
             nn.ReLU(),
@@ -212,7 +218,12 @@ class CategoricalPG(Policy):
         self.baseline = 0
         self.entropy = []
         self.log_probs = []
-        self.logger.update({'loss': []})
+        self.logger.update({
+            'loss': [],
+            '0': [],
+            '15': [],
+            '30': [],
+        })
 
     def action(self, state):
         probs = self.policy(state)
@@ -241,6 +252,11 @@ class CategoricalPG(Policy):
         self.optimizer.step()
 
         self.logger['loss'].append(loss.item())
+        for sample_in in [0, 15, 30]:
+            tensor_in = torch.zeros(1, self.input_size).to(loss.device)
+            tensor_in[0] = sample_in
+            greedy_out = torch.argmax(self.policy(tensor_in)).item()
+            self.logger[str(sample_in)].append(greedy_out)
 
         if self.training:
             self.baseline += (returns.mean().item() - self.baseline) / (ep + 1)

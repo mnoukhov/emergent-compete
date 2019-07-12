@@ -1,5 +1,4 @@
 # Main
-train.Env = @IteratedSenderRecver
 train.vocab_size = 256
 train.episodes = 15000
 train.render_freq = 1000
@@ -9,9 +8,9 @@ train.loaddir = None
 train.device = "cpu"
 
 # Game
-IteratedSenderRecver.batch_size = 128
-IteratedSenderRecver.num_rounds = 10
-IteratedSenderRecver.num_targets = 100
-IteratedSenderRecver.max_bias = 10
-IteratedSenderRecver.min_bias = 0
+ISR.batch_size = 128
+ISR.num_rounds = 10
+ISR.num_targets = 100
+ISR.max_bias = 10
+ISR.min_bias = 0
 

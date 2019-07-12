@@ -10,14 +10,14 @@ import torch.nn.functional as F
 import src.agents
 from src.agents import mode
 import src.maddpg
-import src.game
+from src.game import ISR
 from src.utils import save, plot
 
 
 @gin.configurable
-def train(Env, Sender, Recver, episodes, vocab_size, render_freq, log_freq,
+def train(Sender, Recver, episodes, vocab_size, render_freq, log_freq,
           savedir, loaddir, device):
-    env = Env()
+    env = ISR()
     sender = Sender(input_size=1,
                     output_size=vocab_size,
                     mode=mode.SENDER,
@@ -119,8 +119,6 @@ def train(Env, Sender, Recver, episodes, vocab_size, render_freq, log_freq,
     print(gin.operative_config_str())
 
 
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gin_file', nargs='+', default=['default.gin'])
@@ -135,4 +133,3 @@ if __name__ == '__main__':
     train()
     # gin.clear_config()
     # gin.config._REGISTRY._selector_map.pop('__main__.train')
-

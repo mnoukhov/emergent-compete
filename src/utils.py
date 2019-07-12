@@ -122,16 +122,27 @@ def plot(x, sender, recver, env, savedir):
         # plt.savefig(f'{savedir}/diff.png')
     # plt.show()
 
-    # OUTPUT FOR 20
-    # if '20' in sender.logger:
-        # plt.plot(x, sender.logger['20'], label='sender')
-    plt.plot(x, recver.logger['20'], label='recver')
-    plt.axhline(oneshot_rew, label='one-shot baseline')
-    plt.title('Output for Input=20')
+    # Sender Output Samples
+    plt.plot(x, sender.logger['0'], label='0')
+    plt.plot(x, sender.logger['15'], label='15')
+    plt.plot(x, sender.logger['30'], label='30')
+    plt.title('Sender output samples')
     plt.legend()
     if savedir:
-        plt.savefig(f'{savedir}/20.png')
+        plt.savefig(f'{savedir}/send_samples.png')
     plt.show()
+    plt.clf()
+
+    # Sender Output Samples
+    plt.plot(x, recver.logger['0'], label='0')
+    plt.plot(x, recver.logger['15'], label='15')
+    plt.plot(x, recver.logger['30'], label='30')
+    plt.title('Recver output samples')
+    plt.legend()
+    if savedir:
+        plt.savefig(f'{savedir}/recv_samples.png')
+    plt.show()
+    plt.clf()
 
     # # ENTROPY
     # if 'entropy' in recver.logger:

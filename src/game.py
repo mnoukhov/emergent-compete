@@ -32,7 +32,7 @@ class DiscreteRange(Discrete):
 
 
 @gin.configurable
-class IteratedSenderRecver(gym.Env):
+class ISR(gym.Env):
     def __init__(self,
                  batch_size,
                  num_rounds,
