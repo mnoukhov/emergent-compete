@@ -1,0 +1,11 @@
+train.Sender = @DeterministicGradient
+train.Recver = @DeterministicGradient
+train.vocab_size = 1
+
+DeterministicGradient.lr = 1e-3
+DeterministicGradient.weight_decay = 0
+
+# Game Changing
+ISR.max_bias = 0
+ISR.min_bias = 0
+ISR.num_targets = 36

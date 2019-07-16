@@ -1,4 +1,5 @@
 import argparse
+import json
 import math
 import os
 
@@ -15,7 +16,8 @@ from src.utils import save, plot
 
 
 @gin.configurable
-def train(Sender, Recver, episodes, vocab_size, render_freq, log_freq,
+def train(Sender, Recver, episodes, vocab_size,
+          render_freq, log_freq, print_freq,
           savedir, loaddir, device):
     env = ISR()
     sender = Sender(input_size=1,
@@ -27,28 +29,36 @@ def train(Sender, Recver, episodes, vocab_size, render_freq, log_freq,
                     mode=mode.RECVER,
                     device=device)
 
-    if loaddir:
-        model_save = torch.load(f'results/{loaddir}/models.save')
-        sender.load_state_dict(model_save['sender'])
-        recver.load_state_dict(model_save['recver'])
+    if savedir is not None:
+        savedir = os.path.join('results', savedir)
+        os.makedirs(savedir, exist_ok=True)
+        logpath = f'{savedir}/logs.json'
+        logfile = open(logpath, 'w')
+    else:
+        logfile = None
+
+    if loaddir is not None:
+        loaddir = os.path.join('results', loaddir)
+        if os.path.exists(f'{loaddir}/models.save'):
+            load(sender, recver, loaddir)
 
     for e in range(episodes):
         target = env.reset().to(device)
-        send_rewards = []
-        recv_rewards = []
+        send_rewards_list = []
+        recv_rewards_list = []
 
-        message = torch.zeros(env.batch_size, device=device)
-        action = torch.zeros(env.batch_size, device=device)
-        recv_reward = torch.zeros(env.batch_size, device=device)
-        send_reward = torch.zeros(env.batch_size, device=device)
-        prev_recv_reward = torch.zeros(env.batch_size, device=device)
-        prev_send_reward = torch.zeros(env.batch_size, device=device)
-        prev_target = torch.zeros(env.batch_size, device=device)
-        prev_message = torch.zeros(env.batch_size, device=device)
-        prev_action = torch.zeros(env.batch_size, device=device)
-        prev2_target = torch.zeros(env.batch_size, device=device)
-        send_state = None
-        recv_state = None
+        # message = torch.zeros(env.batch_size, device=device)
+        # action = torch.zeros(env.batch_size, device=device)
+        # recv_reward = torch.zeros(env.batch_size, device=device)
+        # send_reward = torch.zeros(env.batch_size, device=device)
+        # prev_recv_reward = torch.zeros(env.batch_size, device=device)
+        # prev_send_reward = torch.zeros(env.batch_size, device=device)
+        # prev_target = torch.zeros(env.batch_size, device=device)
+        # prev_message = torch.zeros(env.batch_size, device=device)
+        # prev_action = torch.zeros(env.batch_size, device=device)
+        # prev2_target = torch.zeros(env.batch_size, device=device)
+        # send_state = None
+        # recv_state = None
 
         for r in range(env.num_rounds):
             prev2_message = prev_message.detach()
@@ -67,15 +77,15 @@ def train(Sender, Recver, episodes, vocab_size, render_freq, log_freq,
             # recv_state = torch.stack([message, prev_message, prev_action, recv_reward,
                                       # prev2_message, prev2_action, prev_recv_reward],
                                      # dim=1)
-            recv_state = message
+            recv_state = message.unsqueeze(1)
             action = recver.action(recv_state)
 
-            if r > 0 and hasattr(sender, 'memory'):
-                sender.memory.push(prev_send_state.cpu(), prev_message.cpu(), prev_action.cpu(),
-                                    send_reward.cpu(), recv_reward.cpu(), send_state.cpu())
-            if r > 0 and hasattr(recver, 'memory'):
-                recver.memory.push(prev_recv_state.cpu(), prev_message.cpu(), prev_action.cpu(),
-                                    send_reward.cpu(), recv_reward.cpu(), recv_state.cpu())
+            # if r > 0 and hasattr(sender, 'memory'):
+                # sender.memory.push(prev_send_state.cpu(), prev_message.cpu(), prev_action.cpu(),
+                                    # send_reward.cpu(), recv_reward.cpu(), send_state.cpu())
+            # if r > 0 and hasattr(recver, 'memory'):
+                # recver.memory.push(prev_recv_state.cpu(), prev_message.cpu(), prev_action.cpu(),
+                                    # send_reward.cpu(), recv_reward.cpu(), recv_state.cpu())
 
             prev2_target = prev_target
             prev_target = target
@@ -84,36 +94,38 @@ def train(Sender, Recver, episodes, vocab_size, render_freq, log_freq,
 
             target, (send_reward, recv_reward), done, = env.step(action)
             target = target.to(device) if target is not None else None
-            send_reward = send_reward.to(device)
-            recv_reward = recv_reward.to(device)
 
-            send_rewards.append(send_reward)
-            recv_rewards.append(recv_reward)
+            send_rewards_list.append(send_reward)
+            recv_rewards_list.append(recv_reward)
 
             if render_freq and e % render_freq == 0:
                 env.render(message=message[0].item())
 
-        log_now = log_freq and (e % log_freq == 0)
-        recver.update(e, recv_rewards, log_now, retain_graph=True)
-        sender.update(e, send_rewards, log_now)
+        send_rewards = torch.stack(send_rewards_list, dim=1).to(device)
+        recv_rewards = torch.stack(recv_rewards_list, dim=1).to(device)
 
-        if log_now:
+        recv_loss, recv_logs = recver.update(e, recv_rewards, retain_graph=True)
+        send_loss, send_logs = sender.update(e, send_rewards)
+
+        if print_freq and (e % print_freq == 0):
             print(f'EPISODE {e}')
-            print('REWD    {:2.2f}     {:2.2f}'.format(sender.last('ep_reward'), recver.last('ep_reward')))
-            print('LOSS    {:2.2f}     {:2.2f}'.format(sender.last('loss'), recver.last('loss')))
+            print('REWD    {:2.2f}     {:2.2f}'.format(send_logs['reward'], recv_logs['reward']))
+            print('LOSS    {:2.2f}     {:2.2f}'.format(send_logs['loss'], recv_logs['loss']))
             print('DIFF    {:2.2f}     {:2.2f}'.format(env.send_diffs[-1], env.recv_diffs[-1]))
             print('')
 
-    # sender.writer.close()
-    # recver.writer.close()
+        if logfile and (e % log_freq == 0):
+            dump = {'episode': e,
+                    'sender': send_logs,
+                    'recver': recv_logs}
+            json.dump(dump, logfile)
+            logfile.write('\n')
+
     print('Game Over')
-    x = list(range(episodes))
 
-    if savedir is not None:
-        savedir = os.path.join('results', savedir)
-        os.makedirs(savedir, exist_ok=True)
-
-        plot(x, sender, recver, env, savedir)
+    if savedir:
+        logfile.close()
+        plot(logpath, env, savedir)
         save(sender, recver, env, savedir)
 
     print(gin.operative_config_str())
@@ -121,8 +133,8 @@ def train(Sender, Recver, episodes, vocab_size, render_freq, log_freq,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gin_file', nargs='+', default=['default.gin'])
-    parser.add_argument('gin_param', nargs='+')
+    parser.add_argument('--gin_file', '-f', nargs='+', default=['default.gin'])
+    parser.add_argument('--gin_param', '-p', nargs='+')
     args = parser.parse_args()
     gin_files = ['base.gin'] + args.gin_file
     gin_paths = [f'configs/{gin_file}' for gin_file in gin_files]

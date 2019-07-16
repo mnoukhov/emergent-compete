@@ -25,12 +25,7 @@ class Policy(nn.Module):
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
         self.mode = mode
-        self.logger = {
-            'ep_reward': [],
-            'round_reward': [],
-        }
         # self.writer = SummaryWriter(comment=f'/{mode.name}/')
-
 
     def last(self, metric):
         values = self.logger.get(metric, None)
@@ -42,13 +37,13 @@ class Policy(nn.Module):
     def action(self, state):
         pass
 
-    def update(self, ep, rewards, log=True, **kwargs):
-        rewards = torch.stack(rewards, dim=1)
+    def update(self, ep, rewards, **kwargs):
         mean_reward = rewards.mean().item()
         round_reward = rewards.mean(dim=0).tolist()
-        self.logger['ep_reward'].append(mean_reward)
-        self.logger['round_reward'].append(round_reward)
+        logs = {'reward': mean_reward,
+                'round_reward': round_reward}
 
+        return None, logs
         # if log is True:
             # self.writer.add_scalar('reward', mean_reward, global_step=ep)
             # for r, reward in enumerate(round_reward):
@@ -88,45 +83,32 @@ class DeterministicGradient(Policy):
         super().__init__(**kwargs)
         self.input_size = input_size
         self.policy = nn.Sequential(
-            nn.Embedding(input_size, 32),
+            nn.Linear(input_size, 32),
             nn.ReLU(),
             nn.Linear(32, 64),
             nn.ReLU(),
             nn.Linear(64, output_size)).to(device)
-        # self.policy = nn.Sequential(
-            # nn.Embedding(input_size, 30),
-            # nn.LeakyReLU(),
-            # nn.Linear(30, output_size)).to(device)
         self.optimizer = Adam(self.policy.parameters(), lr=lr, weight_decay=weight_decay)
         self.scheduler = ReduceLROnPlateau(self.optimizer)
-
-        self.logger.update({
-            'loss': [],
-            '0': [],
-            '15': [],
-            '30': [],
-        })
 
     def action(self, state):
         action = self.policy(state).squeeze()
         return action
 
-    def update(self, ep, rewards, log, retain_graph=False):
-        super().update(ep, rewards, log)
-        loss = -torch.stack(rewards).mean()
+    def update(self, ep, rewards, retain_graph=False):
+        _, logs = super().update(ep, rewards)
+        loss = - rewards.mean()
 
         self.optimizer.zero_grad()
         loss.backward(retain_graph=retain_graph)
-        # norm = sum(p.grad.data.norm(2) ** 2 for p in self.policy.parameters())**0.5
         self.optimizer.step()
 
-        self.logger['loss'].append(loss.item())
+        logs['loss'] = loss.item()
         for sample_in in [0, 15, 30]:
-            tensor_in = torch.tensor(sample_in).to(loss.device)
-            self.logger[str(sample_in)].append(self.policy(tensor_in).item())
+            tensor_in = torch.tensor(sample_in).unsqueeze(0).float().to(loss.device)
+            logs[str(sample_in)] = self.policy(tensor_in).item()
 
-        if log:
-            self.scheduler.step(loss)
+        return loss, logs
             # self.writer.add_scalar('loss', loss.item(), global_step=ep)
             # self.writer.add_scalar('grad norm', norm, global_step=ep)
 

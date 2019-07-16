@@ -2,7 +2,8 @@
 train.vocab_size = 256
 train.episodes = 15000
 train.render_freq = 1000
-train.log_freq = 100
+train.print_freq = 100
+train.log_freq = 10
 train.savedir = None
 train.loaddir = None
 train.device = "cpu"

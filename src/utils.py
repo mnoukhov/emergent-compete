@@ -1,3 +1,5 @@
+import json
+
 import gin
 import torch
 import matplotlib.pyplot as plt
@@ -63,10 +65,38 @@ def save(sender, recver, env, savedir):
     }, f'{savedir}/models.save')
 
 
-def plot(x, sender, recver, env, savedir):
+def load(sender, recver, loaddir):
+    model_save = torch.load(f'{loaddir}/models.save')
+    sender.load_state_dict(model_save['sender'])
+    recver.load_state_dict(model_save['recver'])
+
+
+def plot(logpath, env, savedir):
+    episode = []
+    sender = {'reward' : [],
+              'round_reward': [],
+              '0': [],
+              '15': [],
+              '30': []}
+    recver = {'reward' : [],
+              'round_reward': [],
+              '0': [],
+              '15': [],
+              '30': []}
+
+    with open(logpath, 'r') as logfile:
+        for line in logfile:
+            logline = json.loads(line)
+            episode.append(logline['episode'])
+            for key in sender.keys():
+                sender[key].append(logline['sender'][key])
+            for key in recver.keys():
+                recver[key].append(logline['recver'][key])
+
     # REWARDS
-    srew = np.array(sender.logger['ep_reward'])
-    rrew = np.array(recver.logger['ep_reward'])
+    x = np.array(episode)
+    srew = np.array(sender['reward'])
+    rrew = np.array(recver['reward'])
     avg_rew = (rrew + srew) / 2
     plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
     plt.plot(x, running_mean(srew, 100), label='sender')
@@ -86,8 +116,8 @@ def plot(x, sender, recver, env, savedir):
     plt.clf()
 
     # REWARD PER ROUND
-    sround = np.array(sender.logger['round_reward'])
-    rround = np.array(recver.logger['round_reward'])
+    sround = np.array(sender['round_reward'])
+    rround = np.array(recver['round_reward'])
     avg_round = (sround + rround) / 2
     for r in range(env.num_rounds):
         # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
@@ -101,8 +131,8 @@ def plot(x, sender, recver, env, savedir):
     plt.clf()
 
     # WEIGHTS
-    # weights = np.array(recver.logger['weights'])
-    # biases = np.array(recver.logger['biases'])[:,np.newaxis]
+    # weights = np.array(recver['weights'])
+    # biases = np.array(recver['biases'])[:,np.newaxis]
     # num_weights = weights.shape[1]
     # for i in range(num_weights):
         # plt.plot(x, running_mean(weights[:,i]), label=f'weight {i}')
@@ -123,9 +153,9 @@ def plot(x, sender, recver, env, savedir):
     # plt.show()
 
     # Sender Output Samples
-    plt.plot(x, sender.logger['0'], label='0')
-    plt.plot(x, sender.logger['15'], label='15')
-    plt.plot(x, sender.logger['30'], label='30')
+    plt.plot(x, sender['0'], label='0')
+    plt.plot(x, sender['15'], label='15')
+    plt.plot(x, sender['30'], label='30')
     plt.title('Sender output samples')
     plt.legend()
     if savedir:
@@ -134,9 +164,9 @@ def plot(x, sender, recver, env, savedir):
     plt.clf()
 
     # Sender Output Samples
-    plt.plot(x, recver.logger['0'], label='0')
-    plt.plot(x, recver.logger['15'], label='15')
-    plt.plot(x, recver.logger['30'], label='30')
+    plt.plot(x, recver['0'], label='0')
+    plt.plot(x, recver['15'], label='15')
+    plt.plot(x, recver['30'], label='30')
     plt.title('Recver output samples')
     plt.legend()
     if savedir:
@@ -145,8 +175,8 @@ def plot(x, sender, recver, env, savedir):
     plt.clf()
 
     # # ENTROPY
-    # if 'entropy' in recver.logger:
-        # plt.plot(x, recver.logger['entropy'], label='entropy')
+    # if 'entropy' in recver:
+        # plt.plot(x, recver['entropy'], label='entropy')
         # plt.legend()
         # if savedir:
             # plt.savefig(f'{savedir}/entropy.png')
