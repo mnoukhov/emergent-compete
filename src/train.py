@@ -34,6 +34,7 @@ def train(Sender, Recver, episodes, vocab_size,
         os.makedirs(savedir, exist_ok=True)
         logpath = f'{savedir}/logs.json'
         logfile = open(logpath, 'w')
+        logfile.write('[ \n')
     else:
         logfile = None
 
@@ -61,12 +62,12 @@ def train(Sender, Recver, episodes, vocab_size,
         # recv_state = None
 
         for r in range(env.num_rounds):
-            prev2_message = prev_message.detach()
-            prev2_action = prev_action.detach()
-            prev_message = message.detach()
-            prev_action = action.detach()
-            prev_send_state = send_state
-            prev_recv_state = recv_state
+            # prev2_message = prev_message.detach()
+            # prev2_action = prev_action.detach()
+            # prev_message = message.detach()
+            # prev_action = action.detach()
+            # prev_send_state = send_state
+            # prev_recv_state = recv_state
 
             # send_state = torch.stack([target, prev_target, prev_message, send_reward,
                                       # prev2_target, prev2_message, prev_send_reward],
@@ -87,10 +88,10 @@ def train(Sender, Recver, episodes, vocab_size,
                 # recver.memory.push(prev_recv_state.cpu(), prev_message.cpu(), prev_action.cpu(),
                                     # send_reward.cpu(), recv_reward.cpu(), recv_state.cpu())
 
-            prev2_target = prev_target
-            prev_target = target
-            prev_recv_reward = recv_reward.detach()
-            prev_send_reward = send_reward.detach()
+            # prev2_target = prev_target
+            # prev_target = target
+            # prev_recv_reward = recv_reward.detach()
+            # prev_send_reward = send_reward.detach()
 
             target, (send_reward, recv_reward), done, = env.step(action)
             target = target.to(device) if target is not None else None
@@ -118,15 +119,21 @@ def train(Sender, Recver, episodes, vocab_size,
             dump = {'episode': e,
                     'sender': send_logs,
                     'recver': recv_logs}
-            json.dump(dump, logfile)
-            logfile.write('\n')
+            json.dump(dump, logfile, indent=2)
+            logfile.write(',\n')
 
     print('Game Over')
 
     if savedir:
+        dump = {'episode': e,
+                'sender': send_logs,
+                'recver': recv_logs}
+        json.dump(dump, logfile, indent=2)
+        logfile.write('\n]')
         logfile.close()
-        plot(logpath, env, savedir)
         save(sender, recver, env, savedir)
+
+        plot(logpath, env, savedir)
 
     print(gin.operative_config_str())
 
@@ -138,10 +145,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     gin_files = ['base.gin'] + args.gin_file
     gin_paths = [f'configs/{gin_file}' for gin_file in gin_files]
+
     # change device to torch.device
     gin.config.register_finalize_hook(
         lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
     gin.parse_config_files_and_bindings(gin_paths, args.gin_param)
     train()
+
     # gin.clear_config()
     # gin.config._REGISTRY._selector_map.pop('__main__.train')

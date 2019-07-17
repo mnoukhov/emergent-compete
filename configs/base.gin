@@ -11,7 +11,7 @@ train.device = "cpu"
 # Game
 ISR.batch_size = 128
 ISR.num_rounds = 10
-ISR.num_targets = 100
+ISR.num_targets = 36
 ISR.max_bias = 10
 ISR.min_bias = 0
 

@@ -7,6 +7,7 @@ dependencies:
     - pytorch
     - matplotlib
     - pillow
+    - seaborn
     - pip:
         - gym
         - gin-config

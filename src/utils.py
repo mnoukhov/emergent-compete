@@ -4,6 +4,8 @@ import gin
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 
 
 def log_grad_norm(log_list):
@@ -72,43 +74,39 @@ def load(sender, recver, loaddir):
 
 
 def plot(logpath, env, savedir):
-    episode = []
-    sender = {'reward' : [],
-              'round_reward': [],
-              '0': [],
-              '15': [],
-              '30': []}
-    recver = {'reward' : [],
-              'round_reward': [],
-              '0': [],
-              '15': [],
-              '30': []}
+    sns.set()
 
     with open(logpath, 'r') as logfile:
-        for line in logfile:
-            logline = json.loads(line)
-            episode.append(logline['episode'])
-            for key in sender.keys():
-                sender[key].append(logline['sender'][key])
-            for key in recver.keys():
-                recver[key].append(logline['recver'][key])
+        logs = pd.read_json(logfile)
+
+    episode = logs['episode']
+    sender = pd.DataFrame([s for s in logs['sender']], index=episode)
+    recver = pd.DataFrame([s for s in logs['recver']], index=episode)
+
+            # for line in logfile:
+            # logline = json.loads(line)
+            # episode.append(logline['episode'])
+            # for key in sender.keys():
+                # sender[key].append(logline['sender'][key])
+            # for key in recver.keys():
+                # recver[key].append(logline['recver'][key])
 
     # REWARDS
-    x = np.array(episode)
-    srew = np.array(sender['reward'])
-    rrew = np.array(recver['reward'])
-    avg_rew = (rrew + srew) / 2
-    plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
-    plt.plot(x, running_mean(srew, 100), label='sender')
-    plt.plot(x, running_mean(rrew, 100), label='recver')
+
+    sns.lineplot(data=sender, x=sender.index, y="reward", label="sender")
+    sns.lineplot(data=recver, x=recver.index, y="reward", label="recver")
+    sns.lineplot(x=sender.index, y=(sender['reward'] + recver['reward'])/2, label='avg')
+#     plt.plot(x, running_mean(avg_rew, 100), label='avg reward')
+#     plt.plot(x, running_mean(srew, 100), label='sender')
+#     plt.plot(x, running_mean(rrew, 100), label='recver')
     nocomm_loss = torch.tensor(env.observation_space.n / 4)
     nocomm_rew = env._reward(nocomm_loss)
     oneshot_loss = (env.bias_space.range) / 4
     oneshot_rew = env._reward(oneshot_loss)
-    perfect_rew = env._reward(oneshot_loss / env.num_rounds)
+#     perfect_rew = env._reward(oneshot_loss / env.num_rounds)
     plt.axhline(nocomm_rew, label='nocomm baseline')
     plt.axhline(oneshot_rew, label='one-shot baseline')
-    plt.axhline(perfect_rew, label='perfect agent')
+#     plt.axhline(perfect_rew, label='perfect agent')
     plt.legend()
     if savedir:
         plt.savefig(f'{savedir}/rewards.png')
@@ -116,19 +114,19 @@ def plot(logpath, env, savedir):
     plt.clf()
 
     # REWARD PER ROUND
-    sround = np.array(sender['round_reward'])
-    rround = np.array(recver['round_reward'])
-    avg_round = (sround + rround) / 2
-    for r in range(env.num_rounds):
-        # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
-        # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
-        plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
-    plt.axhline(oneshot_rew, label='one-shot baseline')
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/round.png')
-    plt.show()
-    plt.clf()
+#     sround = np.array(sender['round_reward'])
+#     rround = np.array(recver['round_reward'])
+#     avg_round = (sround + rround) / 2
+#     for r in range(env.num_rounds):
+#         # plt.plot(x, running_mean(avg_round[:,r]), label='avg_round-{}'.format(r))
+#         # plt.plot(x, running_mean(sround[:,r]), label='sender-{}'.format(r))
+#         plt.plot(x, running_mean(rround[:,r]), label='recver-{}'.format(r))
+#     plt.axhline(oneshot_rew, label='one-shot baseline')
+#     plt.legend()
+#     if savedir:
+#         plt.savefig(f'{savedir}/round.png')
+#     plt.show()
+#     plt.clf()
 
     # WEIGHTS
     # weights = np.array(recver['weights'])
@@ -152,21 +150,20 @@ def plot(logpath, env, savedir):
         # plt.savefig(f'{savedir}/diff.png')
     # plt.show()
 
-    # Sender Output Samples
-    plt.plot(x, sender['0'], label='0')
-    plt.plot(x, sender['15'], label='15')
-    plt.plot(x, sender['30'], label='30')
+    # Sender and Recver Output Samples
+    for sample in ["0", "15", "30"]:
+        sns.lineplot(data=sender, x=sender.index, y=sample, label=sample)
+
     plt.title('Sender output samples')
+    plt.ylabel('')
     plt.legend()
     if savedir:
         plt.savefig(f'{savedir}/send_samples.png')
     plt.show()
     plt.clf()
 
-    # Sender Output Samples
-    plt.plot(x, recver['0'], label='0')
-    plt.plot(x, recver['15'], label='15')
-    plt.plot(x, recver['30'], label='30')
+    for sample in ["0", "15", "30"]:
+        sns.lineplot(data=recver, x=recver.index, y=sample, label=sample)
     plt.title('Recver output samples')
     plt.legend()
     if savedir:
