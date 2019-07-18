@@ -109,3 +109,5 @@ venv.bak/
 # results
 /results
 /runs
+job_error.txt
+job_output.txt
