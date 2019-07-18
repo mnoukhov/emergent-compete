@@ -18,10 +18,10 @@ from src.utils import circle_diff
 
 
 class DiscreteRange(Discrete):
-    def __init__(self, low, high):
+    def __init__(self, low, high=None):
         self.low = low
-        self.high = high
-        self.range = high - low
+        self.high = high if high is not None else low
+        self.range = self.high - self.low
         super().__init__(self.range)
 
     def sample(self):
@@ -37,8 +37,8 @@ class ISR(gym.Env):
                  batch_size,
                  num_rounds,
                  num_targets,
-                 max_bias,
-                 min_bias=0):
+                 min_bias,
+                 max_bias=None):
         self.num_rounds = num_rounds
         self.num_targets = torch.tensor(num_targets, dtype=torch.float)
         self.action_space = Discrete(num_targets)
@@ -74,7 +74,7 @@ class ISR(gym.Env):
 
         return self.send_targets[0]
 
-    def step(self, action):
+    def step(self, message, action):
         action = action.cpu() % self.num_targets
         send_target = self.send_targets[self.round]
         recv_target = self.recv_targets[self.round]
@@ -90,6 +90,7 @@ class ISR(gym.Env):
             'round': self.round,
             'send_target': send_target[0].item(),
             'recv_target': recv_target[0].item(),
+            'message': message[0].tolist(),
             'action': action[0].item(),
             'send_reward': rewards[0][0].item(),
             'recv_reward': rewards[1][0].item(),
@@ -101,13 +102,19 @@ class ISR(gym.Env):
         next_target = self.send_targets[self.round] if not done else None
         return next_target, rewards, done
 
-    def render(self, message=-1.0):
+    def render(self):
+        message = self.round_info['message']
+        if isinstance(message, list):
+            message_str = " ".join(f'{m:5.2f}' for m in message)
+        else:
+            message_str = f'{message:5.2f}'
+
         print('--- round {} ---'.format(self.round_info['round']))
         print('targetS {:<5.2f}   targetR {:<5.2f}'.format(
             self.round_info['send_target'],
             self.round_info['recv_target']))
-        print('message {:<5.2f}   action  {:<4.2f}'.format(
-            message,
+        print('message {}   action  {:<4.2f}'.format(
+            message_str,
             self.round_info['action']))
         print('rewards  {: <5.2f}          {:<4.2f}'.format(
             self.round_info['send_reward'],

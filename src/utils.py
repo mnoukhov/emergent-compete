@@ -151,25 +151,25 @@ def plot(logpath, env, savedir):
     # plt.show()
 
     # Sender and Recver Output Samples
-    for sample in ["0", "15", "30"]:
-        sns.lineplot(data=sender, x=sender.index, y=sample, label=sample)
+    # for sample in ["0", "15", "30"]:
+        # sns.lineplot(data=sender, x=sender.index, y=sample, label=sample)
 
-    plt.title('Sender output samples')
-    plt.ylabel('')
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/send_samples.png')
-    plt.show()
-    plt.clf()
+    # plt.title('Sender output samples')
+    # plt.ylabel('')
+    # plt.legend()
+    # if savedir:
+        # plt.savefig(f'{savedir}/send_samples.png')
+    # plt.show()
+    # plt.clf()
 
-    for sample in ["0", "15", "30"]:
-        sns.lineplot(data=recver, x=recver.index, y=sample, label=sample)
-    plt.title('Recver output samples')
-    plt.legend()
-    if savedir:
-        plt.savefig(f'{savedir}/recv_samples.png')
-    plt.show()
-    plt.clf()
+    # for sample in ["0", "15", "30"]:
+        # sns.lineplot(data=recver, x=recver.index, y=sample, label=sample)
+    # plt.title('Recver output samples')
+    # plt.legend()
+    # if savedir:
+        # plt.savefig(f'{savedir}/recv_samples.png')
+    # plt.show()
+    # plt.clf()
 
     # # ENTROPY
     # if 'entropy' in recver:

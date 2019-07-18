@@ -93,14 +93,14 @@ def train(Sender, Recver, episodes, vocab_size,
             # prev_recv_reward = recv_reward.detach()
             # prev_send_reward = send_reward.detach()
 
-            target, (send_reward, recv_reward), done, = env.step(action)
+            target, (send_reward, recv_reward), done, = env.step(message, action)
             target = target.to(device) if target is not None else None
 
             send_rewards_list.append(send_reward)
             recv_rewards_list.append(recv_reward)
 
             if render_freq and e % render_freq == 0:
-                env.render(message=message[0].item())
+                env.render()
 
         send_rewards = torch.stack(send_rewards_list, dim=1).to(device)
         recv_rewards = torch.stack(recv_rewards_list, dim=1).to(device)

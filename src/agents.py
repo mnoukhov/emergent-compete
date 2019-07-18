@@ -104,9 +104,9 @@ class DeterministicGradient(Policy):
         self.optimizer.step()
 
         logs['loss'] = loss.item()
-        for sample_in in [0, 15, 30]:
-            tensor_in = torch.tensor(sample_in).unsqueeze(0).float().to(loss.device)
-            logs[str(sample_in)] = self.policy(tensor_in).item()
+        # for sample_in in [0, 15, 30]:
+            # tensor_in = torch.tensor(sample_in).unsqueeze(0).float().to(loss.device)
+            # logs[str(sample_in)] = self.policy(tensor_in).item()
 
         return loss, logs
             # self.writer.add_scalar('loss', loss.item(), global_step=ep)
