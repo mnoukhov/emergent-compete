@@ -57,16 +57,6 @@ def circle_diff(x, y, circ):
     return torch.abs(diff)
 
 
-def save(sender, recver, env, savedir):
-    with open(f'{savedir}/config.gin','w') as f:
-        f.write(gin.operative_config_str())
-
-    torch.save({
-        'sender': sender.state_dict(),
-        'recver': recver.state_dict(),
-    }, f'{savedir}/models.save')
-
-
 def load(sender, recver, loaddir):
     model_save = torch.load(f'{loaddir}/models.save')
     sender.load_state_dict(model_save['sender'])

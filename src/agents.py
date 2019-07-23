@@ -96,7 +96,6 @@ class DeterministicGradient(Policy):
 
         self.optimizer.zero_grad()
         loss.backward(retain_graph=retain_graph)
-        grad = self.policy[4]._parameters['weight'].grad
         self.optimizer.step()
 
         logs['loss'] = loss.item()
@@ -104,7 +103,7 @@ class DeterministicGradient(Policy):
             # tensor_in = torch.tensor(sample_in).unsqueeze(0).float().to(loss.device)
             # logs[str(sample_in)] = self.policy(tensor_in).item()
 
-        return loss, logs, grad
+        return loss, logs
 
 
 @gin.configurable
