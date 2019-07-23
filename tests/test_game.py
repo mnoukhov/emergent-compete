@@ -2,15 +2,15 @@ import unittest
 
 import torch
 
-from src.game import IteratedSenderRecver
+from src.game import ISR
 from src.utils import circle_diff
 
 class TestReward(unittest.TestCase):
     def setUp(self):
-        self.isr = IteratedSenderRecver(batch_size=1,
-                                        num_rounds=5,
-                                        num_targets=100,
-                                        max_bias=10)
+        self.isr = ISR(batch_size=1,
+                       num_rounds=5,
+                       num_targets=100,
+                       min_bias=10)
         self.isr.reset()
         self.isr.num_targets = 100
         self.isr.send_target = torch.tensor([50.])
@@ -91,11 +91,11 @@ class TestBias(unittest.TestCase):
     def setUp(self):
         self.min_bias = 0
         self.max_bias = 10
-        self.isr = IteratedSenderRecver(batch_size=1,
-                                        num_rounds=5,
-                                        num_targets=100,
-                                        min_bias=self.min_bias,
-                                        max_bias=self.max_bias)
+        self.isr = ISR(batch_size=1,
+                       num_rounds=5,
+                       num_targets=100,
+                       min_bias=self.min_bias,
+                       max_bias=self.max_bias)
         self.isr.reset()
 
     def test_round_bias_constant(self):
@@ -103,7 +103,7 @@ class TestBias(unittest.TestCase):
         action = torch.tensor([0.])
         done = False
         while not done:
-            _, _, done = self.isr.step(action)
+            _, _, done = self.isr.step(action, action)
             self.assertEqual(bias, self.isr.bias)
 
     def test_episode_bias_changes(self):
@@ -139,18 +139,18 @@ class TestStep(unittest.TestCase):
     def setUp(self):
         self.min_bias = 0
         self.max_bias = 10
-        self.isr = IteratedSenderRecver(batch_size=1,
-                                        num_rounds=5,
-                                        num_targets=100,
-                                        min_bias=self.min_bias,
-                                        max_bias=self.max_bias)
+        self.isr = ISR(batch_size=1,
+                       num_rounds=5,
+                       num_targets=100,
+                       min_bias=self.min_bias,
+                       max_bias=self.max_bias)
         self.isr.reset()
 
     def test_reward(self):
         action = torch.tensor([20.])
         send_target = self.isr.send_targets[0]
         recv_target = self.isr.recv_targets[0]
-        _, rewards, _, = self.isr.step(action)
+        _, rewards, _, = self.isr.step(action, action)
         send_reward, recv_reward = rewards
 
         exp_send_reward = self.isr._reward(send_target, action)
