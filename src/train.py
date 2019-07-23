@@ -29,6 +29,19 @@ def train(Sender, Recver, episodes, vocab_size,
                     mode=mode.RECVER,
                     device=device)
 
+    from collections import OrderedDict
+    testmodel = nn.Sequential(
+        nn.Linear(1, 32),
+        nn.ReLU(),
+        nn.Linear(32, 64),
+        nn.ReLU(),
+        nn.Linear(64, vocab_size),
+        nn.Linear(vocab_size, 32),
+        nn.ReLU(),
+        nn.Linear(32, 64),
+        nn.ReLU(),
+        nn.Linear(64, 1))
+
     if savedir is not None:
         savedir = os.path.join('results', savedir)
         os.makedirs(savedir, exist_ok=True)
@@ -60,6 +73,16 @@ def train(Sender, Recver, episodes, vocab_size,
         # prev2_target = torch.zeros(env.batch_size, device=device)
         # send_state = None
         # recv_state = None
+        # testmodel[:5].load_state_dict(sender.policy.state_dict())
+        # recv_state_dict = recver.policy.state_dict()
+        # test_state_dict = OrderedDict()
+        # for key, val in recv_state_dict.items():
+            # key_num = int(key[0])
+            # recv_key = f'{key_num + 5}' + key[1:]
+            # test_state_dict[recv_key] = val
+        # testmodel[5:].load_state_dict(test_state_dict)
+        # testoptim = torch.optim.Adam(testmodel.parameters())
+        # testrewards = []
 
         for r in range(env.num_rounds):
             # prev2_message = prev_message.detach()
@@ -93,6 +116,9 @@ def train(Sender, Recver, episodes, vocab_size,
             # prev_recv_reward = recv_reward.detach()
             # prev_send_reward = send_reward.detach()
 
+            # testaction = testmodel(send_state).squeeze()
+            # testrewards.append(env._reward(testaction, env.send_targets[env.round]))
+
             target, (send_reward, recv_reward), done, = env.step(message, action)
             target = target.to(device) if target is not None else None
 
@@ -105,8 +131,20 @@ def train(Sender, Recver, episodes, vocab_size,
         send_rewards = torch.stack(send_rewards_list, dim=1).to(device)
         recv_rewards = torch.stack(recv_rewards_list, dim=1).to(device)
 
-        recv_loss, recv_logs = recver.update(e, recv_rewards, retain_graph=True)
-        send_loss, send_logs = sender.update(e, send_rewards)
+        # sender MUST be update before recver
+        send_loss, send_logs = sender.update(e, send_rewards, retain_graph=True)
+        recv_loss, recv_logs = recver.update(e, recv_rewards)
+
+        # testrewards = torch.stack(testrewards)
+        # testloss = - testrewards.mean()
+        # testoptim.zero_grad()
+        # testloss.backward()
+        # test_sgrad = testmodel[4]._parameters['weight'].grad
+        # test_rgrad = testmodel[9]._parameters['weight'].grad
+        # testoptim.step()
+        # print(f'send grad correct {torch.isclose(test_sgrad, send_grad).byte().all()}')
+        # print(f'recv grad correct {torch.isclose(test_rgrad, recv_grad).byte().all()}')
+
 
         if print_freq and (e % print_freq == 0):
             print(f'EPISODE {e}')

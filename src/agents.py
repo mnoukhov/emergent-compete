@@ -44,10 +44,6 @@ class Policy(nn.Module):
                 'round_reward': round_reward}
 
         return None, logs
-        # if log is True:
-            # self.writer.add_scalar('reward', mean_reward, global_step=ep)
-            # for r, reward in enumerate(round_reward):
-                # self.writer.add_scalar(f'reward/{r}', reward, global_step=ep)
 
 
 @gin.configurable
@@ -89,7 +85,6 @@ class DeterministicGradient(Policy):
             nn.ReLU(),
             nn.Linear(64, output_size)).to(device)
         self.optimizer = Adam(self.policy.parameters(), lr=lr, weight_decay=weight_decay)
-        self.scheduler = ReduceLROnPlateau(self.optimizer)
 
     def action(self, state):
         action = self.policy(state).squeeze()
@@ -101,6 +96,7 @@ class DeterministicGradient(Policy):
 
         self.optimizer.zero_grad()
         loss.backward(retain_graph=retain_graph)
+        grad = self.policy[4]._parameters['weight'].grad
         self.optimizer.step()
 
         logs['loss'] = loss.item()
@@ -108,9 +104,7 @@ class DeterministicGradient(Policy):
             # tensor_in = torch.tensor(sample_in).unsqueeze(0).float().to(loss.device)
             # logs[str(sample_in)] = self.policy(tensor_in).item()
 
-        return loss, logs
-            # self.writer.add_scalar('loss', loss.item(), global_step=ep)
-            # self.writer.add_scalar('grad norm', norm, global_step=ep)
+        return loss, logs, grad
 
 
 @gin.configurable

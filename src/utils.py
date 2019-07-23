@@ -50,7 +50,7 @@ def hard_update(source, target):
 
 
 def circle_diff(x, y, circ):
-    # x - y on a circle
+    # abs(x - y) on a circle
     diff = x - y
     diff[diff > circ/2] -= circ
     diff[diff < -circ/2] += circ
