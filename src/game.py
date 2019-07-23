@@ -75,7 +75,7 @@ class ISR(gym.Env):
         return self.send_targets[0]
 
     def step(self, message, action):
-        action = action.cpu() % self.num_targets
+        action = action.cpu().clamp(0, self.num_targets)
         send_target = self.send_targets[self.round]
         recv_target = self.recv_targets[self.round]
         rewards = [self._reward(action, send_target),

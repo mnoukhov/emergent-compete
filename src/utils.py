@@ -50,11 +50,11 @@ def hard_update(source, target):
 
 
 def circle_diff(x, y, circ):
-    # abs(x - y) on a circle
-    diff = x - y
-    diff[diff > circ/2] -= circ
-    diff[diff < -circ/2] += circ
-    return torch.abs(diff)
+    # abs(x - y) on a circle of circumference circ
+    # where x,y < circ
+    diff = torch.abs(x - y)
+    diff[diff > circ/2] = circ - diff[diff > circ/2]
+    return diff
 
 
 def load(sender, recver, loaddir):
