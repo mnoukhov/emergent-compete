@@ -1,0 +1,15 @@
+train.episodes = 1000
+train.Sender = @DeterExactLOLA
+train.Recver = @DeterministicGradient
+train.vocab_size = 1
+
+DeterministicGradient.lr = 1e-3
+DeterministicGradient.weight_decay = 0
+
+DeterExactLOLA.agent = @DeterministicGradient
+DeterExactLOLA.order = 1
+DeterExactLOLA.lola_lr = 1e-3
+
+# Game Changing
+ISR.min_bias = 5
+ISR.num_targets = 36

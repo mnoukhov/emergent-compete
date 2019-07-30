@@ -46,8 +46,8 @@ class ISR(gym.Env):
         self.bias_space = DiscreteRange(min_bias, max_bias)
         self.batch_size = batch_size
 
-        self.send_diffs = []
-        self.recv_diffs = []
+        # self.send_diffs = []
+        # self.recv_diffs = []
 
     def _generate_bias(self):
         return torch.randint(low=self.bias_space.low,
@@ -69,22 +69,21 @@ class ISR(gym.Env):
     def reset(self):
         self.round = 0
         self.bias = self._generate_bias()
-        self.recv_targets = self._generate_targets()
-        self.send_targets = (self.recv_targets + self.bias) % self.num_targets
+        self.send_targets = self._generate_targets()
+        self.recv_targets = (self.send_targets + self.bias) % self.num_targets
 
         return self.send_targets[0]
 
     def step(self, message, action):
-        action = action.cpu().clamp(0, self.num_targets)
         send_target = self.send_targets[self.round]
         recv_target = self.recv_targets[self.round]
         rewards = [self._reward(action, send_target),
                    self._reward(action, recv_target)]
         done = (self.round >= self.num_rounds - 1)
 
-        if done:
-            self.send_diffs.append(rewards[0].mean().item())
-            self.recv_diffs.append(rewards[1].mean().item())
+        # if done:
+            # self.send_diffs.append(rewards[0].mean().item())
+            # self.recv_diffs.append(rewards[1].mean().item())
 
         self.round_info = {
             'round': self.round,
