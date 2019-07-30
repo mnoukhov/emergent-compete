@@ -21,7 +21,7 @@ class Policy(nn.Module):
     def forward(self, state):
         pass
 
-    def loss(self, ep, rewards, **kwargs):
+    def loss(self, rewards, **kwargs):
         mean_reward = rewards.mean().item()
         round_reward = rewards.mean(dim=0).tolist()
         logs = {'reward': mean_reward,
@@ -64,8 +64,8 @@ class DeterministicGradient(Policy):
 
         return action
 
-    def loss(self, ep, rewards, retain_graph=False):
-        _, logs = super().loss(ep, rewards)
+    def loss(self, rewards):
+        _, logs = super().loss(rewards)
         loss = - rewards.mean()
 
         logs['loss'] = loss.item()
@@ -92,7 +92,8 @@ class CategoricalPG(Policy):
 
         self.ent_reg = ent_reg
         self.gamma = gamma
-        self.baseline = 0
+        self.baseline = 0.
+        self.n_update = 0.
         self.entropy = []
         self.log_probs = []
 
@@ -110,8 +111,8 @@ class CategoricalPG(Policy):
 
         return sample.float()
 
-    def loss(self, ep, rewards, **kwargs):
-        _, logs = super().loss(ep, rewards)
+    def loss(self, rewards, **kwargs):
+        _, logs = super().loss(rewards)
         logprobs = torch.stack(self.log_probs, dim=1)
         entropy = torch.stack(self.entropy, dim=1).mean()
 
@@ -127,7 +128,8 @@ class CategoricalPG(Policy):
             logs[str(sample_in)] = greedy_out
 
         if self.training:
-            self.baseline += (returns.mean().item() - self.baseline) / (ep + 1)
+            self.n_update += 1.
+            self.baseline += (returns.detach().mean().item() - self.baseline) / (self.n_update)
 
         self.entropy = []
         self.log_probs = []

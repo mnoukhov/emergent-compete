@@ -106,8 +106,8 @@ def train(Sender, Recver, episodes, vocab_size,
         send_rewards = torch.stack(send_rewards_list, dim=1).to(device)
         recv_rewards = torch.stack(recv_rewards_list, dim=1).to(device)
 
-        send_loss, send_logs = sender.loss(e, send_rewards)
-        recv_loss, recv_logs = recver.loss(e, recv_rewards)
+        send_loss, send_logs = sender.loss(send_rewards)
+        recv_loss, recv_logs = recver.loss(recv_rewards)
 
         # sender MUST be update before recver
         sender.optimizer.zero_grad()

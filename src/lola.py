@@ -24,7 +24,7 @@ class DeterExactLOLA(nn.Module):
     def forward(self, state):
         return self.agent(state)
 
-    def loss(self, ep, rewards, **kwargs):
+    def loss(self, rewards):
         targets = self.env.send_targets[0]
         agent = deepcopy(self.agent)
         agent.load_state_dict(self.agent.state_dict())
@@ -37,14 +37,14 @@ class DeterExactLOLA(nn.Module):
             actions = other(messages.unsqueeze(1))
 
             agent_rewards = self.env._reward(actions, targets)
-            agent_loss = -agent_rewards.mean()
+            agent_loss, _ = agent.loss(agent_rewards)
             agent_optimizer.zero_grad()
             agent_loss.backward(retain_graph=True)
             agent_optimizer.step()
 
             other_targets = (targets + self.env.bias) % self.env.num_targets
             other_rewards = self.env._reward(actions, other_targets)
-            other_loss = -other_rewards.mean()
+            other_loss, _ = other.loss(other_rewards)
             other_optimizer.zero_grad()
             other_loss.backward()
             other_optimizer.step()
@@ -53,4 +53,4 @@ class DeterExactLOLA(nn.Module):
         actions = other(messages.unsqueeze(1))
         lola_rewards = self.env._reward(actions, targets)
 
-        return self.agent.loss(ep, lola_rewards)
+        return self.agent.loss(lola_rewards)
