@@ -1,4 +1,3 @@
-train.episodes = 2000
 train.Sender = @DeterministicGradient
 train.Recver = @DeterministicGradient
 train.vocab_size = 1
@@ -6,6 +5,4 @@ train.vocab_size = 1
 DeterministicGradient.lr = 1e-3
 DeterministicGradient.weight_decay = 0
 
-# Game Changing
-ISR.min_bias = 0
-ISR.num_targets = 36
+Circle.num_batches = 1000

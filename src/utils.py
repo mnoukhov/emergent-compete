@@ -168,3 +168,8 @@ def plot(logpath, env, savedir):
         # if savedir:
             # plt.savefig(f'{savedir}/entropy.png')
         # plt.show()
+
+
+# def set_params(model, parameters):
+    # for model_param, param in zip(model.parameters(), parameters):
+        # model_param.copy_(param)
