@@ -2,6 +2,7 @@
 #SBATCH --job-name=lola
 #SBATCH --output=job_output.txt
 #SBATCH --error=job_error.txt
+#SBATCH --exclude=leto21
 #SBATCH --ntasks=1
 #SBATCH --time=10:00
 #SBATCH --mem=4Gb
@@ -9,8 +10,8 @@
 export PYTHONPATH='/network/home/noukhovm/emergent-selfish'
 source activate selfish
 
-bias=1
-lola=0
+lola=1
+bias=5
 vocab=1
 savedir="deter-deter-lola/lola${lola}-vocab${vocab}-bias${bias}/${SLURM_ARRAY_TASK_ID}"
 

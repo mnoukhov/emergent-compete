@@ -20,7 +20,7 @@ def train(Sender, Recver, episodes, vocab_size,
                     output_size=vocab_size,
                     mode=mode.SENDER,
                     device=device)
-    recver = Recver(input_size=1,
+    recver = Recver(input_size=vocab_size,
                     output_size=1,
                     output_range=env.num_targets,
                     mode=mode.RECVER,
@@ -80,7 +80,7 @@ def train(Sender, Recver, episodes, vocab_size,
             # recv_state = torch.stack([message, prev_message, prev_action, recv_reward,
                                       # prev2_message, prev2_action, prev_recv_reward],
                                      # dim=1)
-            action = recver(message.unsqueeze(1))
+            action = recver(message).squeeze()
 
             # if r > 0 and hasattr(sender, 'memory'):
                 # sender.memory.push(prev_send_state.cpu(), prev_message.cpu(), prev_action.cpu(),

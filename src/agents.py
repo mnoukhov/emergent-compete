@@ -57,7 +57,7 @@ class DeterministicGradient(Policy):
         self.optimizer = Adam(self.policy.parameters(), lr=lr, weight_decay=weight_decay)
 
     def forward(self, state):
-        action = self.policy(state).squeeze()
+        action = self.policy(state)
 
         if self.output_range:
             action = action % self.output_range
@@ -109,7 +109,7 @@ class CategoricalPG(Policy):
 
         self.log_probs.append(dist.log_prob(sample))
 
-        return sample.float()
+        return sample.float().unsqueeze(1)
 
     def loss(self, rewards, **kwargs):
         _, logs = super().loss(rewards)

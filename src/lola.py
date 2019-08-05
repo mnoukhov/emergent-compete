@@ -34,19 +34,19 @@ class DeterExactLOLA(nn.Module):
         other_optimizer = Adam(other.parameters(), lr=self.lola_lr)
         for step in range(self.order):
             messages = agent(targets.unsqueeze(1))
-            actions = other(messages.unsqueeze(1))
+            actions = other(messages).squeeze()
 
             agent_rewards = self.env._reward(actions, targets)
             agent_loss, _ = agent.loss(agent_rewards)
             agent_optimizer.zero_grad()
-            agent_loss.backward(retain_graph=True)
+            agent_loss.backward(retain_graph=True, create_graph=True)
             agent_optimizer.step()
 
             other_targets = (targets + self.env.bias) % self.env.num_targets
             other_rewards = self.env._reward(actions, other_targets)
             other_loss, _ = other.loss(other_rewards)
             other_optimizer.zero_grad()
-            other_loss.backward()
+            other_loss.backward(create_graph=True)
             other_optimizer.step()
 
         messages = self.agent(targets.unsqueeze(1))
