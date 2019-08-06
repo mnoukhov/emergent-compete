@@ -4,6 +4,7 @@ from enum import Enum
 import gin
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.optim import Adam
 from torch.distributions.uniform import Uniform
 from torch.distributions.categorical import Categorical
@@ -63,6 +64,18 @@ class DeterministicGradient(Policy):
             action = action % self.output_range
 
         return action
+
+    def functional_forward(self, state, weights):
+        out = F.linear(state, weights[0], weights[1])
+        out = F.relu(out)
+        out = F.linear(out, weights[2], weights[3])
+        out = F.relu(out)
+        out = F.linear(out, weights[4], weights[5])
+
+        if self.output_range:
+            out = out % self.output_range
+
+        return out
 
     def loss(self, rewards):
         _, logs = super().loss(rewards)

@@ -39,10 +39,11 @@ class Circle(DataLoader):
         return CirclePointsIter(self.num_points, self.bias, self.batch_size, self.num_batches)
 
 
+@gin.configurable
 class CircleLoss(nn.Module):
-    def __init__(self, num_points=36):
+    def __init__(self, num_points):
         super().__init__()
-        self.num_points = 36
+        self.num_points = num_points
 
     def forward(self, pred, target):
         diff = torch.abs(pred - target)

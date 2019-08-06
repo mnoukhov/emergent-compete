@@ -15,10 +15,13 @@ import src.lola
 
 @gin.configurable
 def train(Sender, Recver, vocab_size,
+          num_batches, batch_size, device,
           render_freq, log_freq, print_freq,
-          savedir, loaddir, device):
+          savedir, loaddir):
 
-    dataloader = Circle(device=device)
+    dataloader = Circle(num_batches=num_batches,
+                        batch_size=batch_size,
+                        device=device)
     sender = Sender(input_size=1,
                     output_size=vocab_size,
                     mode=mode.SENDER,
@@ -28,7 +31,7 @@ def train(Sender, Recver, vocab_size,
                     output_range=dataloader.num_points,
                     mode=mode.RECVER,
                     device=device)
-    circle_loss = CircleLoss(dataloader.num_points)
+    circle_loss = CircleLoss()
 
     # sender.other = recver
 
@@ -61,6 +64,7 @@ def train(Sender, Recver, vocab_size,
         send_reward = -circle_loss(action, send_target)
         recv_reward = -circle_loss(action, recv_target)
 
+        # send_loss, send_logs = sender.loss(batch, recver)
         send_loss, send_logs = sender.loss(send_reward)
         recv_loss, recv_logs = recver.loss(recv_reward)
 
@@ -72,7 +76,6 @@ def train(Sender, Recver, vocab_size,
         recver.optimizer.zero_grad()
         recv_loss.backward()
         recver.optimizer.step()
-
 
         if print_freq and (e % print_freq == 0):
             print(f'EPISODE {e}')
