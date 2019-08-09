@@ -1,39 +1,45 @@
 import argparse
 import json
 import os
+import random
 
 import gin
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.optim import Adam
 
 from src.agents import mode
-from src.data import Circle, CircleLoss
-from src.utils import load, plot
+from src.game import Game, CircleLoss
 import src.lola
 
 
 @gin.configurable
-def train(Sender, Recver, vocab_size,
-          num_batches, batch_size, device,
-          render_freq, log_freq, print_freq,
-          savedir, loaddir):
+def train(Sender, Recver, vocab_size, device,
+          num_epochs, num_batches, batch_size,
+          savedir, loaddir, random_seed=None):
 
-    dataloader = Circle(num_batches=num_batches,
-                        batch_size=batch_size,
-                        device=device)
+    if random_seed is not None:
+        random.seed(random_seed)
+        torch.manual_seed(random_seed)
+        if device.type == 'cuda':
+            torch.cuda.manual_seed(random_seed)
+
+    game = Game(num_batches=num_batches,
+                batch_size=batch_size,
+                device=device)
+   # loss_fn = CircleLoss(game.num_points)
+    loss_fn = nn.L1Loss(reduction="none")
+
     sender = Sender(input_size=1,
                     output_size=vocab_size,
-                    mode=mode.SENDER,
-                    device=device)
+                    mode=mode.SENDER).to(device)
     recver = Recver(input_size=vocab_size,
                     output_size=1,
-                    output_range=dataloader.num_points,
-                    mode=mode.RECVER,
-                    device=device)
-    circle_loss = CircleLoss()
-
-    # sender.other = recver
+                    output_range=game.num_points,
+                    mode=mode.RECVER).to(device)
+    send_opt = Adam(sender.parameters(), lr=sender.lr)
+    recv_opt = Adam(recver.parameters(), lr=recver.lr)
 
     # Saving
     if savedir is not None:
@@ -52,38 +58,61 @@ def train(Sender, Recver, vocab_size,
     if loaddir is not None:
         loaddir = os.path.join('results', loaddir)
         if os.path.exists(f'{loaddir}/models.save'):
-            load(sender, recver, loaddir)
+            model_save = torch.load(f'{loaddir}/models.save')
+            sender.load_state_dict(model_save['sender'])
+            recver.load_state_dict(model_save['recver'])
 
     # Training
-    for e, batch in enumerate(dataloader):
-        send_target, recv_target = batch
+    for e, epoch in enumerate(range(num_epochs)):
+        epoch_send_loss = 0
+        epoch_recv_loss = 0
+        epoch_send_rew = 0
+        epoch_recv_rew = 0
 
-        message = sender(send_target)
-        action = recver(message)
+        for b, batch in enumerate(game):
+            send_target, recv_target = batch
 
-        send_reward = -circle_loss(action, send_target)
-        recv_reward = -circle_loss(action, recv_target)
+            message, logprobs, entropy = sender(send_target)
+            action = recver(message)
 
-        # send_loss, send_logs = sender.loss(batch, recver)
-        send_loss, send_logs = sender.loss(send_reward)
-        recv_loss, recv_logs = recver.loss(recv_reward)
+            raw_send_loss = loss_fn(action, send_target).mean(dim=1)
+            raw_recv_loss = loss_fn(action, recv_target).mean(dim=1)
 
-        # sender MUST be update before recver
-        sender.optimizer.zero_grad()
-        send_loss.backward(retain_graph=True)
-        sender.optimizer.step()
+            # send_loss, send_logs = sender.loss(batch, recver)
+            send_loss, send_logs = sender.loss(raw_send_loss, logprobs, entropy)
+            recv_loss, recv_logs = recver.loss(raw_recv_loss)
 
-        recver.optimizer.zero_grad()
-        recv_loss.backward()
-        recver.optimizer.step()
+            # sender MUST be update before recver
+            send_opt.zero_grad()
+            send_loss.backward()
+            send_opt.step()
 
-        if print_freq and (e % print_freq == 0):
-            print(f'EPISODE {e}')
-            print('REWD    {:2.2f}     {:2.2f}'.format(send_logs['reward'], recv_logs['reward']))
-            print('LOSS    {:2.2f}     {:2.2f}'.format(send_logs['loss'], recv_logs['loss']))
-            print('')
+            recv_opt.zero_grad()
+            recv_loss.backward()
+            recv_opt.step()
 
-        if logfile and (e % log_freq == 0):
+            epoch_send_loss += send_loss
+            epoch_recv_loss += recv_loss
+            epoch_send_rew -= raw_send_loss.mean().item()
+            epoch_recv_rew -= raw_recv_loss.mean().item()
+
+
+        epoch_send_loss /= game.num_batches
+        epoch_recv_loss /= game.num_batches
+        epoch_send_rew /= game.num_batches
+        epoch_recv_rew /= game.num_batches
+
+        print(f'EPOCH {e}')
+        print(f'REWD  {epoch_send_rew:2.2f} {epoch_recv_rew:2.2f}')
+        print(f'LOSS  {epoch_send_loss:2.2f} {epoch_recv_loss:2.2f} \n')
+
+        # if print_freq and (e % print_freq == 0):
+        # print(f'EPOCH {e}')
+        # print('REWD    {:2.2f}     {:2.2f}'.format(send_logs['reward'], recv_logs['reward']))
+        # print('LOSS    {:2.2f}     {:2.2f}'.format(send_logs['loss'], recv_logs['loss']))
+        # print('')
+
+        if logfile:
             dump = {'episode': e,
                     'sender': send_logs,
                     'recver': recv_logs}
@@ -120,5 +149,5 @@ if __name__ == '__main__':
     gin.parse_config_files_and_bindings(gin_paths, args.gin_param)
     train()
 
-    # gin.clear_config()
-    # gin.config._REGISTRY._selector_map.pop('__main__.train')
+    gin.clear_config()
+    gin.config._REGISTRY._selector_map.pop('__main__.train')

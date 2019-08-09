@@ -1,10 +1,11 @@
-train.batch_size = 128
-train.num_batches = 2000
-
 train.Sender = @DeterministicGradient
 train.Recver = @DeterministicGradient
 train.vocab_size = 1
 
-DeterministicGradient.lr = 1e-3
+DeterministicGradient.lr = 5e-4
 DeterministicGradient.weight_decay = 0
 
+Game.num_points = 36
+Game.bias = 0
+Game.batch_size = 128
+Game.num_batches = 2000

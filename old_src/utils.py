@@ -57,12 +57,6 @@ def circle_diff(x, y, circ):
     return diff
 
 
-def load(sender, recver, loaddir):
-    model_save = torch.load(f'{loaddir}/models.save')
-    sender.load_state_dict(model_save['sender'])
-    recver.load_state_dict(model_save['recver'])
-
-
 def plot(logpath, env, savedir):
     sns.set()
 

@@ -1,12 +1,9 @@
-from collections import OrderedDict
-
 import gin
 from torch import nn
 from torch.autograd import grad
 from torch.optim import Adam
 
-from src.agents import Policy
-from src.data import CircleLoss
+from src.game import CircleLoss
 
 
 

@@ -5,7 +5,6 @@ import gin
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.optim import Adam
 from torch.distributions.uniform import Uniform
 from torch.distributions.categorical import Categorical
 
@@ -44,42 +43,41 @@ class UniformBias(Policy):
 
 
 @gin.configurable
-class DeterministicGradient(Policy):
-    def __init__(self, input_size, output_size, lr, weight_decay, device,
-                 output_range=None, **kwargs):
+class Deterministic(Policy):
+    def __init__(self, input_size, output_size, hidden_size,
+                 lr, output_range=None, **kwargs):
         super().__init__(**kwargs)
         self.output_range = output_range
         self.policy = nn.Sequential(
-            nn.Linear(input_size, 32),
-            nn.ReLU(),
-            nn.Linear(32, 64),
-            nn.ReLU(),
-            nn.Linear(64, output_size)).to(device)
-        self.optimizer = Adam(self.policy.parameters(), lr=lr, weight_decay=weight_decay)
+            nn.Embedding(input_size, hidden_size),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_size, output_size))
+        self.lr = lr
 
     def forward(self, state):
         action = self.policy(state)
 
-        if self.output_range:
-            action = action % self.output_range
+        # if self.output_range:
+            # action = action % self.output_range
 
         return action
 
     def functional_forward(self, state, weights):
-        out = F.linear(state, weights[0], weights[1])
+        out = F.embedding(state, weights[0], weights[1])
         out = F.relu(out)
         out = F.linear(out, weights[2], weights[3])
         out = F.relu(out)
         out = F.linear(out, weights[4], weights[5])
 
-        if self.output_range:
-            out = out % self.output_range
+        # if self.output_range:
+            # out = out % self.output_range
 
         return out
 
-    def loss(self, rewards):
-        _, logs = super().loss(rewards)
-        loss = - rewards.mean()
+    def loss(self, raw_loss):
+        _, logs = super().loss(-raw_loss)
+        loss = raw_loss.mean()
 
         logs['loss'] = loss.item()
         # for sample_in in [0, 15, 30]:
@@ -90,62 +88,54 @@ class DeterministicGradient(Policy):
 
 
 @gin.configurable
-class CategoricalPG(Policy):
-    def __init__(self, input_size, output_size, lr, weight_decay, gamma, ent_reg, device, **kwargs):
+class Reinforce(Policy):
+    def __init__(self, input_size, output_size, hidden_size,
+                 lr, ent_reg, **kwargs):
         super().__init__(**kwargs)
         self.input_size = input_size
         self.policy = nn.Sequential(
-            nn.Linear(input_size, 32),
-            nn.ReLU(),
-            nn.Linear(32, 64),
-            nn.ReLU(),
-            nn.Linear(64, output_size)).to(device)
-        self.optimizer = Adam(self.policy.parameters(), lr=lr,
-                              weight_decay=weight_decay)
+            nn.Linear(input_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_size, output_size),
+            nn.LogSoftmax(dim=1))
 
         self.ent_reg = ent_reg
-        self.gamma = gamma
+        self.lr = lr
         self.baseline = 0.
         self.n_update = 0.
-        self.entropy = []
-        self.log_probs = []
 
     def forward(self, state):
         logits = self.policy(state)
         dist = Categorical(logits=logits)
-        self.entropy.append(dist.entropy())
+        entropy = dist.entropy()
 
         if self.training:
             sample = dist.sample()
         else:
             sample = probs.argmax(dim=1)
 
-        self.log_probs.append(dist.log_prob(sample))
+        logprobs = dist.log_prob(sample)
 
-        return sample.float().unsqueeze(1)
+        return sample, logprobs, entropy
 
-    def loss(self, rewards, **kwargs):
-        _, logs = super().loss(rewards)
-        logprobs = torch.stack(self.log_probs, dim=1)
-        entropy = torch.stack(self.entropy, dim=1).mean()
+    def loss(self, raw_loss, logprobs, entropy):
+        _, logs = super().loss(-raw_loss)
 
         # discount_return(rewards, self.gamma)
-        returns = rewards - self.baseline
-        loss = (-logprobs * returns).mean() - self.ent_reg * entropy
+        policy_loss = ((raw_loss.detach() - self.baseline) * logprobs).mean()
+        entropy_loss = -entropy.mean() * self.ent_reg
+        loss = policy_loss + entropy_loss
 
         logs['loss'] = loss.item()
-        for sample_in in [0, 15, 30]:
-            tensor_in = torch.zeros(1, self.input_size).to(loss.device)
-            tensor_in[0] = sample_in
-            greedy_out = torch.argmax(self.policy(tensor_in)).item()
-            logs[str(sample_in)] = greedy_out
+        # for sample_in in [0, 15, 30]:
+            # tensor_in = torch.zeros(1, self.input_size).to(loss.device)
+            # tensor_in[0] = sample_in
+            # greedy_out = torch.argmax(self.policy(tensor_in)).item()
+            # logs[str(sample_in)] = greedy_out
 
         if self.training:
             self.n_update += 1.
-            self.baseline += (returns.detach().mean().item() - self.baseline) / (self.n_update)
-
-        self.entropy = []
-        self.log_probs = []
+            self.baseline += (raw_loss.detach().mean().item() - self.baseline) / (self.n_update)
 
         return loss, logs
 

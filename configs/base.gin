@@ -1,20 +1,15 @@
-num_points = 36
-
 # Main
+#train.vocab_size = 1
+#train.render_freq = 1000
+#train.print_freq = 100
+#train.log_freq = 50
+train.num_epochs = 1
 train.num_batches = 1000
-train.batch_size = 128
-
-train.vocab_size = 1
-train.render_freq = 1000
-train.print_freq = 100
-train.log_freq = 50
 train.savedir = None
 train.loaddir = None
 train.device = "cpu"
 
 # Game
-Circle.num_points = %num_points
-Circle.bias = 0
-
-CircleLoss.num_points = %num_points
+Game.num_points = 36
+Game.bias = 0
 
