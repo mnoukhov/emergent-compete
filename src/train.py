@@ -17,7 +17,7 @@ import src.lola
 @gin.configurable
 def train(Sender, Recver, vocab_size, device,
           num_epochs, num_batches, batch_size,
-          savedir, loaddir, random_seed=None):
+          savedir=None, loaddir=None, random_seed=None):
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -28,22 +28,20 @@ def train(Sender, Recver, vocab_size, device,
     game = Game(num_batches=num_batches,
                 batch_size=batch_size,
                 device=device)
-   # loss_fn = CircleLoss(game.num_points)
-    loss_fn = nn.L1Loss(reduction="none")
+    loss_fn = CircleLoss(game.num_points)
+    # loss_fn = nn.L1Loss(reduction="none")
 
     sender = Sender(input_size=1,
                     output_size=vocab_size,
                     mode=mode.SENDER).to(device)
     recver = Recver(input_size=vocab_size,
                     output_size=1,
-                    output_range=game.num_points,
                     mode=mode.RECVER).to(device)
     send_opt = Adam(sender.parameters(), lr=sender.lr)
     recv_opt = Adam(recver.parameters(), lr=recver.lr)
 
     # Saving
     if savedir is not None:
-        savedir = os.path.join('results', savedir)
         os.makedirs(savedir, exist_ok=True)
 
         with open(f'{savedir}/config.gin', 'w') as f:
@@ -52,6 +50,7 @@ def train(Sender, Recver, vocab_size, device,
         logfile = open(f'{savedir}/logs.json', 'w')
         logfile.write('[ \n')
     else:
+        print(gin.operative_config_str())
         logfile = None
 
     # Loading
@@ -63,6 +62,8 @@ def train(Sender, Recver, vocab_size, device,
             recver.load_state_dict(model_save['recver'])
 
     # Training
+    best_epoch_rew = None
+
     for e, epoch in enumerate(range(num_epochs)):
         epoch_send_loss = 0
         epoch_recv_loss = 0
@@ -106,23 +107,21 @@ def train(Sender, Recver, vocab_size, device,
         print(f'REWD  {epoch_send_rew:2.2f} {epoch_recv_rew:2.2f}')
         print(f'LOSS  {epoch_send_loss:2.2f} {epoch_recv_loss:2.2f} \n')
 
-        # if print_freq and (e % print_freq == 0):
-        # print(f'EPOCH {e}')
-        # print('REWD    {:2.2f}     {:2.2f}'.format(send_logs['reward'], recv_logs['reward']))
-        # print('LOSS    {:2.2f}     {:2.2f}'.format(send_logs['loss'], recv_logs['loss']))
-        # print('')
+        mean_epoch_rew = (epoch_send_rew + epoch_recv_rew) / 2
+        if best_epoch_rew is None or mean_epoch_rew > best_epoch_rew:
+            best_epoch_rew = mean_epoch_rew
 
         if logfile:
-            dump = {'episode': e,
+            dump = {'epoch': e,
                     'sender': send_logs,
                     'recver': recv_logs}
             json.dump(dump, logfile, indent=2)
             logfile.write(',\n')
 
-    print('Game Over')
+    print(f'Game Over: {best_epoch_rew:2.2f}')
 
     if savedir:
-        dump = {'episode': e,
+        dump = {'epoch': e,
                 'sender': send_logs,
                 'recver': recv_logs}
         json.dump(dump, logfile, indent=2)
@@ -132,22 +131,21 @@ def train(Sender, Recver, vocab_size, device,
                     'recver': recver.state_dict(),
                     }, f'{savedir}/models.save')
 
-    print(gin.operative_config_str())
+    return best_epoch_rew
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gin_file', '-f', nargs='+', default=['default.gin'])
+    parser.add_argument('--gin_file', '-f', nargs='+')
     parser.add_argument('--gin_param', '-p', nargs='+')
     args = parser.parse_args()
-    gin_files = ['base.gin'] + args.gin_file
-    gin_paths = [f'configs/{gin_file}' for gin_file in gin_files]
 
     # change device to torch.device
     gin.config.register_finalize_hook(
         lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
-    gin.parse_config_files_and_bindings(gin_paths, args.gin_param)
+    gin.parse_config_files_and_bindings(args.gin_file, args.gin_param)
+
     train()
 
-    gin.clear_config()
-    gin.config._REGISTRY._selector_map.pop('__main__.train')
+    # gin.clear_config()
+    # gin.config._REGISTRY._selector_map.pop('__main__.train')

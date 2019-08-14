@@ -8,8 +8,6 @@ import torch.nn.functional as F
 from torch.distributions.uniform import Uniform
 from torch.distributions.categorical import Categorical
 
-from src.utils import discount_return
-
 mode = Enum('Player', 'SENDER RECVER')
 
 
@@ -121,7 +119,6 @@ class Reinforce(Policy):
     def loss(self, raw_loss, logprobs, entropy):
         _, logs = super().loss(-raw_loss)
 
-        # discount_return(rewards, self.gamma)
         policy_loss = ((raw_loss.detach() - self.baseline) * logprobs).mean()
         entropy_loss = -entropy.mean() * self.ent_reg
         loss = policy_loss + entropy_loss

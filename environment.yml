@@ -11,4 +11,4 @@ dependencies:
     - pip:
         - gym
         - gin-config
-        - tb-nightly
+        - orion.core

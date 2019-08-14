@@ -1,0 +1,5 @@
+include 'configs/cat-deter.gin'
+
+train.num_epochs = 3
+
+Reinforce.lr = reinforce-lr~loguniform(1e-3, 1e-1)

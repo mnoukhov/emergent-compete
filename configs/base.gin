@@ -1,12 +1,9 @@
 # Main
-#train.vocab_size = 1
-#train.render_freq = 1000
-#train.print_freq = 100
-#train.log_freq = 50
-train.num_epochs = 1
-train.num_batches = 1000
-train.savedir = None
-train.loaddir = None
+train.vocab_size = 256
+
+train.num_epochs = 10
+train.num_batches = 250
+train.batch_size = 32
 train.device = "cpu"
 
 # Game
