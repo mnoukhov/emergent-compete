@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     mean_best_reward /= 5
 
-    print('mean best reward over seeds {mean_best_reward}')
+    print(f'mean best reward over seeds {mean_best_reward:2.2f}')
     report_results([dict(
         name='best_neg_reward',
         type='objective',
