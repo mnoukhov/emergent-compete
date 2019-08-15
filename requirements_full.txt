@@ -23,6 +23,7 @@ ecdsa==0.13
 entrypoints==0.2.3
 filelock==3.0.12
 funcsigs==1.0.2
+gin-config==0.2.0
 gitdb2==2.0.5
 GitPython==2.1.11
 html5lib==1.0.1

@@ -4,4 +4,4 @@
 -f /home/noukhovm/wheels
 torch==1.2.0
 orion.core==0.1.5
-
+gin-config==0.2.0

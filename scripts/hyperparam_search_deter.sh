@@ -16,12 +16,12 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="cat-deter-search-bias6"
+experiment_name="deter-deter-bias6-search"
 
 orion hunt -n $experiment_name	\
 	--working-dir $SLURM_TMPDIR/$experiment_name \
-	--max-trials 150 \
-	src/orion_runs.py --config configs/cat-deter-search.gin --savedir {trial.working_dir} -p Game.bias=6
+	--max-trials 150
+	src/orion_runs.py --config configs/deter-deter-search.gin --savedir {trial.working_dir}
 
 cp -r $SLURM_TMPDIR/$exp_name $SCRATCH/emergent-selfish/$exp_name
 

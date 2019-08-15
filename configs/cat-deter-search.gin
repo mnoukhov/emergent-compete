@@ -1,6 +1,6 @@
 include 'configs/cat-deter.gin'
 
-train.vocab_size = vocab-size~choices(64,256,1024)
+train.vocab_size = vocabsize~choices(64,256,1024)
 train.num_epochs = 25
 train.num_batches = 250
 train.batch_size = 64
