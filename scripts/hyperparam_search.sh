@@ -13,6 +13,9 @@ source scripts/beluga.sh
 exp_name="test"
 
 orion hunt -n $exp_name	\
-	--working_dir /home/noukovm/scratch/emergent-selfish/$exp_name \
+	--working_dir $SLURM_TMP_DIR/$exp_name \
 	--max_trials 10
-	./scripts/hyperparam_search.py --config configs/test.gin --savedir {trial.working_dir}
+	src/orion_runs.py --config configs/cat-deter-search.gin --savedir {trial.working_dir}
+
+cp -r $SLURM_TMP_DIR/$exp_name $SCRATCH/emergent-selfish/$exp_name
+
