@@ -1,11 +1,12 @@
-train.Sender = @DeterministicGradient
-train.Recver = @DeterministicGradient
-train.vocab_size = 1
+include 'configs/base.gin'
 
-DeterministicGradient.lr = 5e-4
-DeterministicGradient.weight_decay = 0
+train.Sender = @Deterministic
+train.Recver = @Deterministic
+train.vocab_size = 1
+train.num_epochs = 20
+
+Deterministic.lr = 1e-2
+Deterministic.hidden_size = 32
 
 Game.num_points = 36
 Game.bias = 0
-Game.batch_size = 128
-Game.num_batches = 2000

@@ -11,6 +11,14 @@ from torch.distributions.categorical import Categorical
 mode = Enum('Player', 'SENDER RECVER')
 
 
+class RelaxedEmbedding(nn.Embedding):
+    def forward(self, x):
+        if isinstance(x, torch.LongTensor) or (torch.cuda.is_available() and isinstance(x, torch.cuda.LongTensor)):
+            return F.embedding(x, self.weight, self.padding_idx, self.max_norm, self.norm_type, self.scale_grad_by_freq, self.sparse)
+        else:
+            return torch.matmul(x, self.weight)
+
+
 class Policy(nn.Module):
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
@@ -42,12 +50,14 @@ class UniformBias(Policy):
 
 @gin.configurable
 class Deterministic(Policy):
+    retain_graph = True
+
     def __init__(self, input_size, output_size, hidden_size,
                  lr, output_range=None, **kwargs):
         super().__init__(**kwargs)
         self.output_range = output_range
         self.policy = nn.Sequential(
-            nn.Embedding(input_size, hidden_size),
+            RelaxedEmbedding(input_size, hidden_size),
             nn.Linear(hidden_size, hidden_size),
             nn.LeakyReLU(),
             nn.Linear(hidden_size, output_size))
@@ -59,7 +69,7 @@ class Deterministic(Policy):
         # if self.output_range:
             # action = action % self.output_range
 
-        return action
+        return action, torch.tensor(0.), torch.tensor(0.)
 
     def functional_forward(self, state, weights):
         out = F.embedding(state, weights[0], weights[1])
@@ -73,7 +83,7 @@ class Deterministic(Policy):
 
         return out
 
-    def loss(self, raw_loss):
+    def loss(self, raw_loss, *args):
         _, logs = super().loss(-raw_loss)
         loss = raw_loss.mean()
 

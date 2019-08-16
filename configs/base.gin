@@ -3,7 +3,7 @@ train.vocab_size = 256
 
 train.num_epochs = 10
 train.num_batches = 250
-train.batch_size = 32
+train.batch_size = 64
 train.device = "cpu"
 
 # Game

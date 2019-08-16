@@ -73,19 +73,18 @@ def train(Sender, Recver, vocab_size, device,
         for b, batch in enumerate(game):
             send_target, recv_target = batch
 
-            message, logprobs, entropy = sender(send_target)
-            action = recver(message)
+            message, send_logprobs, send_entropy = sender(send_target)
+            action, recv_logprobs, recv_entropy = recver(message)
 
             raw_send_loss = loss_fn(action, send_target).mean(dim=1)
             raw_recv_loss = loss_fn(action, recv_target).mean(dim=1)
 
-            # send_loss, send_logs = sender.loss(batch, recver)
-            send_loss, send_logs = sender.loss(raw_send_loss, logprobs, entropy)
-            recv_loss, recv_logs = recver.loss(raw_recv_loss)
+            send_loss, send_logs = sender.loss(raw_send_loss, send_logprobs, send_entropy)
+            recv_loss, recv_logs = recver.loss(raw_recv_loss, recv_logprobs, recv_entropy)
 
-            # sender MUST be update before recver
+            # sender MUST be updated before recver
             send_opt.zero_grad()
-            send_loss.backward()
+            send_loss.backward(retain_graph=sender.retain_graph)
             send_opt.step()
 
             recv_opt.zero_grad()
