@@ -1,4 +1,3 @@
-from copy import deepcopy
 from enum import Enum
 
 import gin
@@ -20,6 +19,8 @@ class RelaxedEmbedding(nn.Embedding):
 
 
 class Policy(nn.Module):
+    retain_graph = False
+
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
         self.mode = mode

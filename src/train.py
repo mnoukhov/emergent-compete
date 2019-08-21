@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam
 
 from src.agents import mode
-from src.game import Game, CircleLoss
-import src.lola
+from src.game import Game, CircleL1, CircleL2
+from src.lola import LOLA
 
 
 @gin.configurable
@@ -28,8 +28,7 @@ def train(Sender, Recver, vocab_size, device,
     game = Game(num_batches=num_batches,
                 batch_size=batch_size,
                 device=device)
-    loss_fn = CircleLoss(game.num_points)
-    # loss_fn = nn.L1Loss(reduction="none")
+    loss_fn = CircleL1(game.num_points)
 
     sender = Sender(input_size=1,
                     output_size=vocab_size,
@@ -37,6 +36,11 @@ def train(Sender, Recver, vocab_size, device,
     recver = Recver(input_size=vocab_size,
                     output_size=1,
                     mode=mode.RECVER).to(device)
+
+    if issubclass(Sender, LOLA):
+        sender.other = recver
+        sender.loss_fn = loss_fn
+
     send_opt = Adam(sender.parameters(), lr=sender.lr)
     recv_opt = Adam(recver.parameters(), lr=recver.lr)
 
@@ -82,7 +86,7 @@ def train(Sender, Recver, vocab_size, device,
             send_loss, send_logs = sender.loss(raw_send_loss, send_logprobs, send_entropy)
             recv_loss, recv_logs = recver.loss(raw_recv_loss, recv_logprobs, recv_entropy)
 
-            # sender MUST be updated before recver
+            # sender must be updated before recver if using retain_graph
             send_opt.zero_grad()
             send_loss.backward(retain_graph=sender.retain_graph)
             send_opt.step()
@@ -106,9 +110,9 @@ def train(Sender, Recver, vocab_size, device,
         print(f'REWD  {epoch_send_rew:2.2f} {epoch_recv_rew:2.2f}')
         print(f'LOSS  {epoch_send_loss:2.2f} {epoch_recv_loss:2.2f} \n')
 
-        mean_epoch_rew = (epoch_send_rew + epoch_recv_rew) / 2
-        if best_epoch_rew is None or mean_epoch_rew > best_epoch_rew:
-            best_epoch_rew = mean_epoch_rew
+        epoch_rew = (epoch_send_rew + epoch_recv_rew) / 2
+        if best_epoch_rew is None or epoch_rew > best_epoch_rew:
+            best_epoch_rew = epoch_rew
 
         if logfile:
             dump = {'epoch': e,
@@ -119,7 +123,7 @@ def train(Sender, Recver, vocab_size, device,
 
     print(f'Game Over: {best_epoch_rew:2.2f}')
 
-    if savedir:
+    if logfile:
         dump = {'epoch': e,
                 'sender': send_logs,
                 'recver': recv_logs}

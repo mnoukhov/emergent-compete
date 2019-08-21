@@ -45,17 +45,27 @@ class Game(DataLoader):
                                 self.device)
 
 
-@gin.configurable
-class CircleLoss(_Loss):
+class CircleL1(_Loss):
     def __init__(self, num_points):
         super().__init__(reduction=None)
         self.num_points = num_points
 
     def forward(self, output, target):
-        # angle = 2 * math.pi * torch.abs(pred - target) / self.num_points
-        # return torch.cos(angle)
-        # diff[diff > self.num_points/2] = self.num_points - diff[diff > self.num_points/2]
-        pred = output %  self.num_points
+        # torch.remainder has an issue
+        pred = torch.abs(torch.fmod(output, self.num_points))
+        diff = torch.abs(pred - target)
+        counter_diff = self.num_points - diff
+        min_diff = torch.min(diff, counter_diff)
+        return min_diff
+
+
+class CircleL2(_Loss):
+    def __init__(self, num_points):
+        super().__init__(reduction=None)
+        self.num_points = num_points
+
+    def forward(self, output, target):
+        pred = torch.abs(torch.fmod(output, self.num_points))
         diff = torch.abs(pred - target)
         counter_diff = self.num_points - diff
         min_diff = torch.min(diff, counter_diff)

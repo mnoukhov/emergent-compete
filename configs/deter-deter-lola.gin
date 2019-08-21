@@ -1,11 +1,14 @@
-train.num_batches = 2000
+include 'configs/base.gin'
 
-train.Sender = @DeterExactLOLA
-train.Recver = @DeterministicGradient
+train.Sender = @Deterministic
+train.Recver = @DeterExactLOLA
+train.vocab_size = 1
+train.num_epochs = 20
 
-DeterministicGradient.lr = 1e-3
-DeterministicGradient.weight_decay = 0
-
-DeterExactLOLA.agent = @DeterministicGradient
+DeterExactLOLA.agent = @Deterministic
 DeterExactLOLA.order = 1
 DeterExactLOLA.lola_lr = 1e-2
+
+Deterministic.lr = 1e-2
+Deterministic.hidden_size = 32
+
