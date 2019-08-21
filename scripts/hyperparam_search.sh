@@ -27,5 +27,5 @@ orion hunt -n $experiment_name	\
        	--savedir {trial.working_dir} \
        	--gin_param $params
 
-cp -r $SLURM_TMPDIR/$exp_name $SCRATCH/emergent-selfish/$exp_name
+cp -r $SLURM_TMPDIR/$experiment_name $SCRATCH/emergent-selfish/$experiment_name
 
