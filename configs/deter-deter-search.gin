@@ -1,13 +1,11 @@
 include 'configs/base.gin'
 
-train.Sender = @DeterministicGradient
-train.Recver = @DeterministicGradient
+train.Sender = @sender/Deterministic
+train.Recver = @recver/Deterministic
 train.vocab_size = 1
+train.num_epochs = 25
 
-DeterministicGradient.lr = 5e-4
-DeterministicGradient.weight_decay = 0
-
-Game.num_points = 36
-Game.bias = 0
-Game.batch_size = 128
-Game.num_batches = 2000
+sender/Deterministic.lr = sender-lr~loguniform(1e-4, 1e-1)
+sender/Deterministic.hidden_size = sender-hid~uniform(10, 64, discrete=True)
+recver/Deterministic.lr = recver-lr~loguniform(1e-4, 1e-1)
+recver/Deterministic.hidden_size = recver-hid~uniform(10, 64, discrete=True)
