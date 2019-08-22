@@ -7,11 +7,11 @@ train.batch_size = 64
 train.Sender = @Reinforce
 train.Recver = @Deterministic
 
-Reinforce.lr = reinforce-lr~loguniform(1e-3, 1e-1)
+Reinforce.lr = reinforce-lr~loguniform(1e-4, 1e-1)
 Reinforce.hidden_size = reinforce-hid~uniform(10, 64, discrete=True)
-Reinforce.ent_reg = reinforce-ent-reg~loguniform(1e-3,1)
+Reinforce.ent_reg = reinforce-ent-reg~loguniform(1e-4,1)
 
-Deterministic.lr = deterministic-lr~loguniform(1e-3, 1e-1)
+Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-1)
 Deterministic.hidden_size = deterministic-hid~uniform(10, 64, discrete=True)
 
 Game.bias = 0

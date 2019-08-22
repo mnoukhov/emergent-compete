@@ -16,9 +16,9 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="deter-deter-search-bias0"
-config="deter-deter-search.gin"
-params="Game.bias=0"
+experiment_name="cat-deter-search-bias15-max"
+config="cat-deter-search.gin"
+params="Game.bias=15"
 
 orion hunt -n $experiment_name	\
 	--working-dir $SLURM_TMPDIR/$experiment_name \
