@@ -28,47 +28,28 @@ class Policy(nn.Module):
     def forward(self, state):
         pass
 
-    def loss(self, rewards, **kwargs):
-        mean_reward = rewards.mean().item()
-        round_reward = rewards.mean(dim=0).tolist()
-        logs = {'reward': mean_reward,
-                'round_reward': round_reward}
+    def loss(self, error, **kwargs):
+        logs = {'error': error.mean().item()}
 
         return None, logs
-
-
-@gin.configurable
-class UniformBias(Policy):
-    def __init__(self, bias, **kwargs):
-        super().__init__(**kwargs)
-        self.bias = Uniform(0, bias)
-
-    def forward(self, state):
-        target = state[:,0]
-        output = target + self.bias.sample()
-        return output.float()
 
 
 @gin.configurable
 class Deterministic(Policy):
     retain_graph = True
 
-    def __init__(self, input_size, output_size, hidden_size,
-                 lr, output_range=None, **kwargs):
+    def __init__(self, input_size, output_size, hidden_size, lr, **kwargs):
         super().__init__(**kwargs)
-        self.output_range = output_range
         self.policy = nn.Sequential(
             RelaxedEmbedding(input_size, hidden_size),
+            nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.Linear(hidden_size, output_size))
         self.lr = lr
 
     def forward(self, state):
         action = self.policy(state)
-
-        # if self.output_range:
-            # action = action % self.output_range
 
         return action, torch.tensor(0.), torch.tensor(0.)
 
@@ -79,14 +60,11 @@ class Deterministic(Policy):
         out = F.relu(out)
         out = F.linear(out, weights[4], weights[5])
 
-        # if self.output_range:
-            # out = out % self.output_range
-
         return out
 
-    def loss(self, raw_loss, *args):
-        _, logs = super().loss(-raw_loss)
-        loss = raw_loss.mean()
+    def loss(self, error, *args):
+        _, logs = super().loss(error)
+        loss = error.mean()
 
         logs['loss'] = loss.item()
         # for sample_in in [0, 15, 30]:
@@ -104,7 +82,9 @@ class Reinforce(Policy):
         self.input_size = input_size
         self.policy = nn.Sequential(
             nn.Linear(input_size, hidden_size),
-            nn.LeakyReLU(),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
             nn.Linear(hidden_size, output_size),
             nn.LogSoftmax(dim=1))
 
@@ -121,16 +101,16 @@ class Reinforce(Policy):
         if self.training:
             sample = dist.sample()
         else:
-            sample = probs.argmax(dim=1)
+            sample = logits.argmax(dim=1)
 
         logprobs = dist.log_prob(sample)
 
         return sample, logprobs, entropy
 
-    def loss(self, raw_loss, logprobs, entropy):
-        _, logs = super().loss(-raw_loss)
+    def loss(self, error, logprobs, entropy):
+        _, logs = super().loss(error)
 
-        policy_loss = ((raw_loss.detach() - self.baseline) * logprobs).mean()
+        policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
         entropy_loss = -entropy.mean() * self.ent_reg
         loss = policy_loss + entropy_loss
 
@@ -143,7 +123,7 @@ class Reinforce(Policy):
 
         if self.training:
             self.n_update += 1.
-            self.baseline += (raw_loss.detach().mean().item() - self.baseline) / (self.n_update)
+            self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
 
         return loss, logs
 

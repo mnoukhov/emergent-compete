@@ -7,12 +7,13 @@ from torch.nn.modules.loss import _Loss
 
 
 class CirclePointsIter:
-    def __init__(self, num_points, bias, batch_size, num_batches, device):
+    def __init__(self, num_points, bias, batch_size, num_batches, device, training):
         self.num_points = num_points
         self.bias = bias
         self.batch_size = batch_size
         self.num_batches = num_batches
         self.device = device
+        self.training = training
 
         self.batches = 0
 
@@ -20,10 +21,14 @@ class CirclePointsIter:
         if self.batches >= self.num_batches:
             raise StopIteration()
 
-        send_targets = torch.randint(self.num_points,
-                                     size=(self.batch_size, 1),
-                                     device=self.device,
-                                     dtype=torch.float)
+        if self.training:
+            send_targets = self.num_points * torch.rand(size=(self.batch_size, 1),
+                                                        device=self.device)
+        else:
+            send_targets = torch.arange(0, self.num_points,
+                                        step=self.num_points / self.batch_size,
+                                        device=self.device).unsqueeze(1)
+
         recv_targets = (send_targets + self.bias) % self.num_points
 
         self.batches += 1
@@ -33,16 +38,17 @@ class CirclePointsIter:
 
 @gin.configurable
 class Game(DataLoader):
-    def __init__(self, num_points, bias, batch_size, num_batches, device='cpu'):
+    def __init__(self, num_points, bias, batch_size, num_batches, device='cpu', training=True):
         self.batch_size = batch_size
         self.num_points = num_points
         self.bias = bias
         self.num_batches = num_batches
         self.device = device
+        self.training = training
 
     def __iter__(self):
-        return CirclePointsIter(self.num_points, self.bias, self.batch_size, self.num_batches,
-                                self.device)
+        return CirclePointsIter(self.num_points, self.bias, self.batch_size,
+                                self.num_batches, self.device, training=self.training)
 
 
 class CircleL1(_Loss):

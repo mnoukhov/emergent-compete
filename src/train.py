@@ -14,10 +14,25 @@ from src.game import Game, CircleL1, CircleL2
 from src.lola import LOLA
 
 
+def _add_dicts(a, b):
+    result = dict(a)
+    for k, v in b.items():
+        result[k] = result.get(k, 0) + v
+    return result
+
+
+def _div_dict(d, n):
+    result = dict(d)
+    for k in result:
+        result[k] /= n
+    return result
+
+
 @gin.configurable
 def train(Sender, Recver, vocab_size, device,
           num_epochs, num_batches, batch_size,
-          savedir=None, loaddir=None, random_seed=None):
+          grounded=False, savedir=None, loaddir=None,
+          random_seed=None):
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -28,6 +43,10 @@ def train(Sender, Recver, vocab_size, device,
     game = Game(num_batches=num_batches,
                 batch_size=batch_size,
                 device=device)
+    test_game = Game(num_batches=1,
+                     batch_size=100,
+                     device=device,
+                     training=False)
     loss_fn = CircleL1(game.num_points)
 
     sender = Sender(input_size=1,
@@ -65,26 +84,29 @@ def train(Sender, Recver, vocab_size, device,
             sender.load_state_dict(model_save['sender'])
             recver.load_state_dict(model_save['recver'])
 
-    # Training
-    best_epoch_rew = None
+    best_epoch_error = None
 
     for e, epoch in enumerate(range(num_epochs)):
-        epoch_send_loss = 0
-        epoch_recv_loss = 0
-        epoch_send_rew = 0
-        epoch_recv_rew = 0
+        epoch_send_logs = {}
+        epoch_recv_logs = {}
 
+        # Training
+        sender.train()
+        recver.train()
         for b, batch in enumerate(game):
             send_target, recv_target = batch
 
             message, send_logprobs, send_entropy = sender(send_target)
             action, recv_logprobs, recv_entropy = recver(message)
 
-            raw_send_loss = loss_fn(action, send_target).mean(dim=1)
-            raw_recv_loss = loss_fn(action, recv_target).mean(dim=1)
+            if grounded:
+                action = message + action
 
-            send_loss, send_logs = sender.loss(raw_send_loss, send_logprobs, send_entropy)
-            recv_loss, recv_logs = recver.loss(raw_recv_loss, recv_logprobs, recv_entropy)
+            send_error = loss_fn(action, send_target).mean(dim=1)
+            recv_error = loss_fn(action, recv_target).mean(dim=1)
+
+            send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
+            recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
             # sender must be updated before recver if using retain_graph
             send_opt.zero_grad()
@@ -95,33 +117,52 @@ def train(Sender, Recver, vocab_size, device,
             recv_loss.backward()
             recv_opt.step()
 
-            epoch_send_loss += send_loss
-            epoch_recv_loss += recv_loss
-            epoch_send_rew -= raw_send_loss.mean().item()
-            epoch_recv_rew -= raw_recv_loss.mean().item()
+            epoch_send_logs = _add_dicts(epoch_send_logs, send_logs)
+            epoch_recv_logs = _add_dicts(epoch_recv_logs, recv_logs)
 
+        epoch_send_logs = _div_dict(epoch_send_logs, game.num_batches)
+        epoch_recv_logs = _div_dict(epoch_recv_logs, game.num_batches)
 
-        epoch_send_loss /= game.num_batches
-        epoch_recv_loss /= game.num_batches
-        epoch_send_rew /= game.num_batches
-        epoch_recv_rew /= game.num_batches
+        # Testing
+        sender.eval()
+        recver.eval()
+        epoch_send_test_error = 0
+        epoch_recv_test_error = 0
+        for b, batch in enumerate(test_game):
+            send_target, recv_target = batch
+
+            message, send_logprobs, send_entropy = sender(send_target)
+            action, recv_logprobs, recv_entropy = recver(message)
+
+            if grounded:
+                action = message + action
+
+            send_test_error = loss_fn(action, send_target).mean(dim=1)
+            recv_test_error = loss_fn(action, recv_target).mean(dim=1)
+
+            epoch_send_test_error += send_test_error.mean().item()
+            epoch_recv_test_error += recv_test_error.mean().item()
+
+        epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
+        epoch_recv_logs['test_error'] = epoch_recv_test_error / test_game.num_batches
 
         print(f'EPOCH {e}')
-        print(f'REWD  {epoch_send_rew:2.2f} {epoch_recv_rew:2.2f}')
-        print(f'LOSS  {epoch_send_loss:2.2f} {epoch_recv_loss:2.2f} \n')
+        print(f'ERROR {epoch_send_logs["error"]:2.2f} {epoch_recv_logs["error"]:2.2f}')
+        print(f'LOSS  {epoch_send_logs["loss"]:2.2f} {epoch_recv_logs["loss"]:2.2f}')
+        print(f'TEST  {epoch_send_logs["test_error"]:2.2f} {epoch_recv_logs["test_error"]:2.2f}\n')
 
-        epoch_rew = (epoch_send_rew + epoch_recv_rew) / 2
-        if best_epoch_rew is None or epoch_rew > best_epoch_rew:
-            best_epoch_rew = epoch_rew
+        epoch_total_error = epoch_send_logs["test_error"] + epoch_recv_logs["test_error"]
+        if best_epoch_error is None or epoch_total_error < best_epoch_error:
+            best_epoch_error = epoch_total_error
 
         if logfile:
             dump = {'epoch': e,
-                    'sender': send_logs,
-                    'recver': recv_logs}
+                    'sender': epoch_send_logs,
+                    'recver': epoch_recv_logs}
             json.dump(dump, logfile, indent=2)
             logfile.write(',\n')
 
-    print(f'Game Over: {best_epoch_rew:2.2f}')
+    print(f'Game Over: {best_epoch_error:2.2f}')
 
     if logfile:
         dump = {'epoch': e,
@@ -134,7 +175,7 @@ def train(Sender, Recver, vocab_size, device,
                     'recver': recver.state_dict(),
                     }, f'{savedir}/models.save')
 
-    return best_epoch_rew
+    return best_epoch_error
 
 
 if __name__ == '__main__':
