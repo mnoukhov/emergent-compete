@@ -47,7 +47,7 @@ def train(Sender, Recver, vocab_size, device,
                      batch_size=100,
                      device=device,
                      training=False)
-    loss_fn = CircleL1(game.num_points)
+    loss_fn = CircleL2(game.num_points)
 
     sender = Sender(input_size=1,
                     output_size=vocab_size,

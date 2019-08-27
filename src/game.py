@@ -72,8 +72,8 @@ class CircleL2(_Loss):
 
     def forward(self, output, target):
         pred = torch.abs(torch.fmod(output, self.num_points))
-        diff = torch.abs(pred - target)
-        counter_diff = self.num_points - diff
+        diff = (pred - target)**2
+        counter_diff = (self.num_points - torch.abs(pred - target))**2
         min_diff = torch.min(diff, counter_diff)
         return min_diff
 
