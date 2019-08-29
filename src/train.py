@@ -162,7 +162,7 @@ def train(Sender, Recver, vocab_size, device,
             json.dump(dump, logfile, indent=2)
             logfile.write(',\n')
 
-    print(f'Game Over: {best_epoch_error:2.2f}')
+    print(f'Game Over: {best_test_error:2.2f}')
 
     if logfile:
         dump = {'epoch': e,
