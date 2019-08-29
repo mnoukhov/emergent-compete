@@ -10,10 +10,10 @@ from src.train import train
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', required=True, nargs='+')
+    parser.add_argument('--config', '--gin_file', nargs='+')
     parser.add_argument('--gin_param', '-p', nargs='+')
     parser.add_argument('--savedir')
-    parser.add_argument('--objective', choices=['mean', 'max'], default='max')
+    parser.add_argument('--objective', choices=['mean', 'min'], default='mean')
     args = parser.parse_args()
 
     # change device to torch.device
@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     gin.parse_config_files_and_bindings(args.config, args.gin_param)
 
-    rewards = []
+    errors = []
     for random_seed in range(5):
         if args.savedir:
             os.makedirs(args.savedir, exist_ok=True)
@@ -31,20 +31,20 @@ if __name__ == '__main__':
         else:
             seed_savedir = None
 
-        best_reward = train(savedir=seed_savedir,
-                            random_seed=random_seed)
-        rewards.append(best_reward)
+        best_error = train(savedir=seed_savedir,
+                           random_seed=random_seed)
+        errors.append(best_error)
 
     if args.objective == 'mean':
-        objective = -sum(rewards) / len(rewards)
-    elif args.objective == 'max':
-        objective = -max(rewards)
+        objective = sum(errors) / len(errors)
+    elif args.objective == 'min':
+        objective = min(errors)
     else:
         raise NotImplementedError(f'no objective: {args.objective}')
 
-    print(f'{args.objective} best objective over seeds {objective:2.2f}')
+    print(f'{args.objective} error over seeds: {objective:2.2f}')
 
     report_results([dict(
-        name='best_neg_reward',
+        name=f'{objective}_error_over_seeds',
         type='objective',
         value=objective)])

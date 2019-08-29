@@ -84,7 +84,7 @@ def train(Sender, Recver, vocab_size, device,
             sender.load_state_dict(model_save['sender'])
             recver.load_state_dict(model_save['recver'])
 
-    best_epoch_error = None
+    best_test_error = None
 
     for e, epoch in enumerate(range(num_epochs)):
         epoch_send_logs = {}
@@ -151,9 +151,9 @@ def train(Sender, Recver, vocab_size, device,
         print(f'LOSS  {epoch_send_logs["loss"]:2.2f} {epoch_recv_logs["loss"]:2.2f}')
         print(f'TEST  {epoch_send_logs["test_error"]:2.2f} {epoch_recv_logs["test_error"]:2.2f}\n')
 
-        epoch_total_error = epoch_send_logs["test_error"] + epoch_recv_logs["test_error"]
-        if best_epoch_error is None or epoch_total_error < best_epoch_error:
-            best_epoch_error = epoch_total_error
+        total_test_error = epoch_send_logs["test_error"] + epoch_recv_logs["test_error"]
+        if best_test_error is None or total_test_error < best_test_error:
+            best_test_error = total_test_error
 
         if logfile:
             dump = {'epoch': e,
@@ -175,7 +175,7 @@ def train(Sender, Recver, vocab_size, device,
                     'recver': recver.state_dict(),
                     }, f'{savedir}/models.save')
 
-    return best_epoch_error
+    return best_test_error
 
 
 if __name__ == '__main__':

@@ -9,6 +9,12 @@ from torch.distributions.categorical import Categorical
 
 mode = Enum('Player', 'SENDER RECVER')
 
+def relaxedembedding(x, weight, *args):
+    if isinstance(x, torch.LongTensor) or (torch.cuda.is_available() and isinstance(x, torch.cuda.LongTensor)):
+        return F.embedding(x, weight, *args)
+    else:
+        return torch.matmul(x, weight)
+
 
 class RelaxedEmbedding(nn.Embedding):
     def forward(self, x):
@@ -20,7 +26,6 @@ class RelaxedEmbedding(nn.Embedding):
 
 class Policy(nn.Module):
     retain_graph = False
-
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
         self.mode = mode
@@ -53,12 +58,12 @@ class Deterministic(Policy):
 
         return action, torch.tensor(0.), torch.tensor(0.)
 
-    def functional_forward(self, state, weights):
-        out = F.embedding(state, weights[0], weights[1])
+    def functional_forward(self, x, weights):
+        out = relaxedembedding(x, weights[0])
         out = F.relu(out)
-        out = F.linear(out, weights[2], weights[3])
+        out = F.linear(out, weights[1], weights[2])
         out = F.relu(out)
-        out = F.linear(out, weights[4], weights[5])
+        out = F.linear(out, weights[3], weights[4])
 
         return out
 
@@ -67,9 +72,6 @@ class Deterministic(Policy):
         loss = error.mean()
 
         logs['loss'] = loss.item()
-        # for sample_in in [0, 15, 30]:
-            # tensor_in = torch.tensor(sample_in).unsqueeze(0).float().to(loss.device)
-            # logs[str(sample_in)] = self.policy(tensor_in).item()
 
         return loss, logs
 
@@ -115,11 +117,6 @@ class Reinforce(Policy):
         loss = policy_loss + entropy_loss
 
         logs['loss'] = loss.item()
-        # for sample_in in [0, 15, 30]:
-            # tensor_in = torch.zeros(1, self.input_size).to(loss.device)
-            # tensor_in[0] = sample_in
-            # greedy_out = torch.argmax(self.policy(tensor_in)).item()
-            # logs[str(sample_in)] = greedy_out
 
         if self.training:
             self.n_update += 1.

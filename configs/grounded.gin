@@ -2,5 +2,5 @@ include 'configs/deter-deter.gin'
 
 train.grounded = True
 
-Deterministic.lr = 1e-2
+Deterministic.lr = 1e-3
 Deterministic.hidden_size = 32
