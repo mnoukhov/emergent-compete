@@ -2,6 +2,6 @@
 -f /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/avx2
 -f /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
 -f /home/noukhovm/wheels
-torch==1.2.0
-orion.core==0.1.5
-gin-config==0.2.0
+torch>=1.2.0
+orion.core>=0.1.5
+gin-config>=0.2.0
