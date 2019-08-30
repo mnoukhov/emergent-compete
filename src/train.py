@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam
 
 from src.agents import mode
-from src.game import Game, CircleL1, CircleL2
+from src.game import Game, CircleL1, CircleL2, CosineLoss
 from src.lola import LOLA
 
 
@@ -32,7 +32,7 @@ def _div_dict(d, n):
 def train(Sender, Recver, vocab_size, device,
           num_epochs, num_batches, batch_size,
           grounded=False, savedir=None, loaddir=None,
-          random_seed=None):
+          random_seed=None, Loss=None):
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -47,7 +47,11 @@ def train(Sender, Recver, vocab_size, device,
                      batch_size=100,
                      device=device,
                      training=False)
-    loss_fn = CircleL2(game.num_points)
+
+    if Loss is None:
+        loss_fn = CircleL1(game.num_points)
+    else:
+        loss_fn = Loss(game.num_points)
 
     sender = Sender(input_size=1,
                     output_size=vocab_size,
@@ -73,7 +77,6 @@ def train(Sender, Recver, vocab_size, device,
         logfile = open(f'{savedir}/logs.json', 'w')
         logfile.write('[ \n')
     else:
-        print(gin.operative_config_str())
         logfile = None
 
     # Loading
@@ -124,6 +127,7 @@ def train(Sender, Recver, vocab_size, device,
         epoch_recv_logs = _div_dict(epoch_recv_logs, game.num_batches)
 
         # Testing
+        test_loss_fn = CircleL1(game.num_points)
         sender.eval()
         recver.eval()
         epoch_send_test_error = 0
@@ -137,8 +141,8 @@ def train(Sender, Recver, vocab_size, device,
             if grounded:
                 action = message + action
 
-            send_test_error = loss_fn(action, send_target).mean(dim=1)
-            recv_test_error = loss_fn(action, recv_target).mean(dim=1)
+            send_test_error = test_loss_fn(action, send_target).mean(dim=1)
+            recv_test_error = test_loss_fn(action, recv_target).mean(dim=1)
 
             epoch_send_test_error += send_test_error.mean().item()
             epoch_recv_test_error += recv_test_error.mean().item()
@@ -151,7 +155,7 @@ def train(Sender, Recver, vocab_size, device,
         print(f'LOSS  {epoch_send_logs["loss"]:2.2f} {epoch_recv_logs["loss"]:2.2f}')
         print(f'TEST  {epoch_send_logs["test_error"]:2.2f} {epoch_recv_logs["test_error"]:2.2f}\n')
 
-        total_test_error = epoch_send_logs["test_error"] + epoch_recv_logs["test_error"]
+        total_test_error = epoch_send_logs['test_error'] + epoch_recv_logs['test_error']
         if best_test_error is None or total_test_error < best_test_error:
             best_test_error = total_test_error
 
@@ -189,6 +193,7 @@ if __name__ == '__main__':
         lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
     gin.parse_config_files_and_bindings(args.gin_file, args.gin_param)
 
+    print(gin.operative_config_str())
     train()
 
     # gin.clear_config()

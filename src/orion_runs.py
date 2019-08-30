@@ -21,6 +21,7 @@ if __name__ == '__main__':
         lambda config: config[('', 'src.train.train')].update({'device': torch.device(config[('', 'src.train.train')]['device'])}))
 
     gin.parse_config_files_and_bindings(args.config, args.gin_param)
+    print(gin.operative_config_str())
 
     errors = []
     for random_seed in range(5):
