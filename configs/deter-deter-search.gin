@@ -4,6 +4,7 @@ train.Sender = @sender/Deterministic
 train.Recver = @recver/Deterministic
 train.vocab_size = 1
 train.num_epochs = 25
+train.Loss = loss~choices("@CircleL1","@CircleL2","@CosineLoss")
 
 sender/Deterministic.lr = sender-lr~loguniform(1e-4, 1e-1)
 sender/Deterministic.hidden_size = sender-hid~uniform(10, 64, discrete=True)
