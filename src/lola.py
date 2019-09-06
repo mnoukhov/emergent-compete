@@ -55,8 +55,8 @@ class DiceLOLASender(Reinforce):
             self.n_update += 1.
             self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
 
-        logs['lola_error'] = error
-        logs['loss'] = loss
+        logs['lola_error'] = error.mean().item()
+        logs['loss'] = loss.item()
 
         return loss, logs
 
