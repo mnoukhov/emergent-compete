@@ -16,16 +16,16 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="cat-deter-search-bias12"
-config="cat-deter-search.gin"
-params="Game.bias=12"
+experiment_name="deter-deter-search-grounded-bias15"
+config="deter-deter-search.gin"
+params="Game.bias=15 train.grounded=True"
 
 orion hunt -n $experiment_name	\
-	--working-dir $SLURM_TMPDIR/$experiment_name \
-	--max-trials 45 \
-	src/orion_runs.py --config configs/$config \
-       	--savedir {trial.working_dir} \
-       	--gin_param $params
+    --working-dir $SLURM_TMPDIR/$experiment_name \
+    --max-trials 45 \
+    src/orion_runs.py --config configs/$config \
+    --savedir {trial.working_dir} \
+    --gin_param $params
 
 mkdir -p $SCRATCH/emergent-selfish/$experiment_name
 cp -r $SLURM_TMPDIR/$experiment_name/* $SCRATCH/emergent-selfish/$experiment_name/
