@@ -16,13 +16,13 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="deter-deter-search-grounded-bias15"
-config="deter-deter-search.gin"
-params="Game.bias=15 train.grounded=True"
+experiment_name="cat-deter-senderlola-bias15"
+config="cat-deter-senderlola-search.gin"
+params="Game.bias=15"
 
-orion hunt -n $experiment_name	\
+orion --debug hunt -n $experiment_name	\
     --working-dir $SLURM_TMPDIR/$experiment_name \
-    --max-trials 45 \
+    --max-trials 1 \
     src/orion_runs.py --config configs/$config \
     --savedir {trial.working_dir} \
     --gin_param $params
