@@ -26,6 +26,8 @@ class RelaxedEmbedding(nn.Embedding):
 
 class Policy(nn.Module):
     retain_graph = False
+    lola = False
+
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
         self.mode = mode
@@ -65,7 +67,7 @@ class Deterministic(Policy):
         out = F.relu(out)
         out = F.linear(out, weights[3], weights[4])
 
-        return out
+        return out, torch.tensor(0.), torch.tensor(0.)
 
     def loss(self, error, *args):
         _, logs = super().loss(error)
@@ -97,6 +99,26 @@ class Reinforce(Policy):
 
     def forward(self, state):
         logits = self.policy(state)
+        dist = Categorical(logits=logits)
+        entropy = dist.entropy()
+
+        if self.training:
+            sample = dist.sample()
+        else:
+            sample = logits.argmax(dim=1)
+
+        logprobs = dist.log_prob(sample)
+
+        return sample, logprobs, entropy
+
+    def functional_forward(self, x, weights):
+        out = F.linear(x, weights[0], weights[1])
+        out = F.relu(out)
+        out = F.linear(out, weights[2], weights[3])
+        out = F.relu(out)
+        out = F.linear(out, weights[4], weights[5])
+        logits = F.log_softmax(out, dim=1)
+
         dist = Categorical(logits=logits)
         entropy = dist.entropy()
 

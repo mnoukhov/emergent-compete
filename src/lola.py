@@ -1,15 +1,137 @@
 import gin
+import torch
 from torch import nn
 from torch.autograd import grad
 from torch.optim import Adam
 
+from src.agents import Deterministic, Reinforce
 
-class LOLA(nn.Module):
-    pass
+
+def dice(x):
+    return torch.exp(x - x.detach())
 
 
 @gin.configurable
-class DeterExactLOLA(LOLA):
+class DiceLOLASender(Reinforce):
+    lola = True
+
+    def __init__(self, order, sender_lola_lr, recver_lola_lr, **kwargs):
+        super().__init__(**kwargs)
+        self.order = order
+        self.sender_lola_lr = sender_lola_lr
+        self.recver_lola_lr = recver_lola_lr
+
+    def loss(self, error, message, logprobs, entropy, batch, recver, loss_fn):
+        _, logs = super(Reinforce, self).loss(error)
+        sender = self
+
+        recver_params = [param.clone().detach().requires_grad_()
+                         for param in recver.parameters()]
+        sender_targets, recver_targets = batch
+
+        for step in range(self.order):
+            actions, _, _ = recver.functional_forward(message, recver_params)
+
+            recver_error = loss_fn(actions, recver_targets).squeeze()
+            recver_loss = recver_error.mean()
+            recver_grads = grad(recver_loss, recver_params, create_graph=True)
+
+            # update
+            recver_params = [param - grad * self.recver_lola_lr
+                            for param, grad in zip(recver_params, recver_grads)]
+
+            # new messages
+            message, logprobs, entropy = sender(sender_targets)
+
+        actions, _, _ = recver.functional_forward(message, recver_params)
+
+        error = loss_fn(actions, sender_targets).squeeze()
+        dice_loss = (error.detach() * dice(logprobs)).mean()
+        entropy_loss = -entropy.mean() * sender.ent_reg
+        baseline = ((1 - dice(logprobs)) * self.baseline).mean()
+        loss = dice_loss + entropy_loss + baseline
+
+        if self.training:
+            self.n_update += 1.
+            self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
+
+        logs['lola_error'] = error
+        logs['loss'] = loss
+
+        return loss, logs
+
+
+@gin.configurable
+class DiceLOLAReceiver(Deterministic):
+    lola = True
+
+    def __init__(self, sender, order, sender_lola_lr, recver_lola_lr, **kwargs):
+        super().__init__(**kwargs)
+        self.sender = sender(**kwargs)
+        self.order = order
+        self.sender_lola_lr = sender_lola_lr
+        self.recver_lola_lr = recver_lola_lr
+
+        self.n_update = 0
+        self.baseline = 0
+
+    @property
+    def lr(self):
+        return self.sender.lr
+
+    def forward(self, state):
+        return self.sender(state)
+
+    def loss(self, error, logprobs, entropy, batch, recver, loss_fn):
+        _, logs = super().loss(error)
+        sender = self.sender
+
+        recver_params = [param.clone().detach().requires_grad_()
+                         for param in recver.parameters()]
+        sender_targets, recver_targets = batch
+
+        for step in range(self.order):
+            messages, sender_logprobs, sender_entropy = sender(sender_targets)
+            actions, _, _ = recver.functional_forward(messages, recver_params)
+
+            sender_error = loss_fn(actions, sender_targets).squeeze()
+            sender_dice_loss = (sender_error.detach() * dice(sender_logprobs)).mean()
+            sender_entropy_loss = -sender_entropy.mean() * sender.ent_reg
+            sender_baseline = ((1 - dice(sender_logprobs)) * self.baseline).mean()
+
+            sender_loss = sender_dice_loss + sender_entropy_loss + sender_baseline
+            sender_grads = grad(sender_loss, sender_params, create_graph=True)
+
+            recver_error = loss_fn(actions, recver_targets).squeeze()
+            recver_loss = recver_error.mean()
+            recver_grads = grad(recver_loss, recver_params, create_graph=True)
+
+            # update
+            recver_params = [param - grad * self.recver_lola_lr
+                            for param, grad in zip(recver_params, recver_grads)]
+
+        messages, logprobs, entropy = sender(sender_targets)
+        actions, _, _ = recver.functional_forward(messages, recver_params)
+
+        error = loss_fn(actions, sender_targets).squeeze()
+        dice_loss = (error.detach() * dice(logprobs)).mean()
+        entropy_loss = -entropy.mean() * sender.ent_reg
+        baseline = ((1 - dice(logprobs)) * self.baseline).mean()
+        loss = dice_loss + entropy_loss + baseline
+
+        if self.training:
+            self.n_update += 1.
+            self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
+
+        logs['lola_error'] = error
+        logs['loss'] = loss
+
+        return loss, logs
+
+@gin.configurable
+class DeterExactLOLA(Deterministic):
+    lola = True
+
     def __init__(self, agent, order, lola_lr, **kwargs):
         super().__init__()
         self.agent = agent(**kwargs)

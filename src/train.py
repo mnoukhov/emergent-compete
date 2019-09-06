@@ -4,6 +4,7 @@ import os
 import random
 
 import gin
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -11,7 +12,7 @@ from torch.optim import Adam
 
 from src.agents import mode
 from src.game import Game, CircleL1, CircleL2, CosineLoss
-from src.lola import LOLA
+import src.lola
 
 
 def _add_dicts(a, b):
@@ -60,10 +61,6 @@ def train(Sender, Recver, vocab_size, device,
                     output_size=1,
                     mode=mode.RECVER).to(device)
 
-    if issubclass(Sender, LOLA):
-        sender.other = recver
-        sender.loss_fn = loss_fn
-
     send_opt = Adam(sender.parameters(), lr=sender.lr)
     recv_opt = Adam(recver.parameters(), lr=recver.lr)
 
@@ -87,7 +84,7 @@ def train(Sender, Recver, vocab_size, device,
             sender.load_state_dict(model_save['sender'])
             recver.load_state_dict(model_save['recver'])
 
-    best_test_error = None
+    test_errors = []
 
     for e, epoch in enumerate(range(num_epochs)):
         epoch_send_logs = {}
@@ -105,11 +102,18 @@ def train(Sender, Recver, vocab_size, device,
             if grounded:
                 action = message + action
 
-            send_error = loss_fn(action, send_target).mean(dim=1)
-            recv_error = loss_fn(action, recv_target).mean(dim=1)
+            send_error = loss_fn(action, send_target).squeeze()
+            recv_error = loss_fn(action, recv_target).squeeze()
 
-            send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
-            recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
+            if sender.lola is True:
+                send_loss, send_logs = sender.loss(send_error, message, send_logprobs, send_entropy, batch, recver, loss_fn)
+            else:
+                send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
+
+            if recver.lola is True:
+                recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy, batch, sender, loss_fn)
+            else:
+                recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
             # sender must be updated before recver if using retain_graph
             send_opt.zero_grad()
@@ -155,9 +159,7 @@ def train(Sender, Recver, vocab_size, device,
         print(f'LOSS  {epoch_send_logs["loss"]:2.2f} {epoch_recv_logs["loss"]:2.2f}')
         print(f'TEST  {epoch_send_logs["test_error"]:2.2f} {epoch_recv_logs["test_error"]:2.2f}\n')
 
-        total_test_error = epoch_send_logs['test_error'] + epoch_recv_logs['test_error']
-        if best_test_error is None or total_test_error < best_test_error:
-            best_test_error = total_test_error
+        test_errors.append(epoch_send_logs['test_error'] + epoch_recv_logs['test_error'])
 
         if logfile:
             dump = {'epoch': e,
@@ -166,20 +168,18 @@ def train(Sender, Recver, vocab_size, device,
             json.dump(dump, logfile, indent=2)
             logfile.write(',\n')
 
-    print(f'Game Over: {best_test_error:2.2f}')
 
     if logfile:
-        dump = {'epoch': e,
-                'sender': send_logs,
-                'recver': recv_logs}
-        json.dump(dump, logfile, indent=2)
         logfile.write('\n]')
         logfile.close()
         torch.save({'sender': sender.state_dict(),
                     'recver': recver.state_dict(),
                     }, f'{savedir}/models.save')
 
-    return best_test_error
+    last_errors_avg = sum(test_errors[-10:]) / 10
+    print(f'Game Over: {last_errors_avg:2.2f}')
+
+    return last_errors_avg
 
 
 if __name__ == '__main__':

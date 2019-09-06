@@ -1,9 +1,5 @@
 include 'configs/base.gin'
 
-train.vocab_size = 256
-train.num_epochs = 30
-train.num_batches = 250
-train.batch_size = 32
 train.Sender = @Reinforce
 train.Recver = @Deterministic
 
@@ -13,6 +9,3 @@ Reinforce.ent_reg = 1e-2
 
 Deterministic.lr = 1e-3
 Deterministic.hidden_size = 32
-
-Game.bias = 0
-Game.num_points = 36
