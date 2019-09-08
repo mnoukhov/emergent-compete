@@ -15,7 +15,10 @@ def metric(seeds_dir, verbose=False):
         if verbose:
             print(path)
         with open(path, 'r') as logfile:
-            run_logs.append(pd.read_json(logfile))
+            try:
+                run_logs.append(pd.read_json(logfile))
+            except ValueError as e:
+                raise Exception(f'cant read json {path}: {e}')
 
     logs = pd.concat(run_logs, ignore_index=True)
     epoch = logs['epoch']
@@ -58,11 +61,13 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.'):
         name_index = len(exp_full_name) + 1
         print(f'running on {exp_full_name}')
         error, run_name = metric_over_runs(exp_results_path, verbose=False)
-
-        biases.append(int(exp_full_name[bias_index:]))
-        best_errors.append(error)
-        ids.append(run_name[name_index:])
-        run_paths.append(exp_results_path / run_name)
+        if error is None:
+            print(f'no results in {exp_full_name}')
+        else:
+            biases.append(int(exp_full_name[bias_index:]))
+            best_errors.append(error)
+            ids.append(run_name[name_index:])
+            run_paths.append(exp_results_path / run_name)
 
     if not run_paths:
         raise Exception(f'could not find any experiment {experiment_name} in {cluster_results_path}')
