@@ -86,7 +86,7 @@ def train(Sender, Recver, vocab_size, device,
 
     test_errors = []
 
-    for e, epoch in enumerate(range(num_epochs)):
+    for epoch in range(num_epochs):
         epoch_send_logs = {}
         epoch_recv_logs = {}
 
@@ -154,7 +154,7 @@ def train(Sender, Recver, vocab_size, device,
         epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
         epoch_recv_logs['test_error'] = epoch_recv_test_error / test_game.num_batches
 
-        print(f'EPOCH {e}')
+        print(f'EPOCH {epoch}')
         print(f'ERROR {epoch_send_logs["error"]:2.2f} {epoch_recv_logs["error"]:2.2f}')
         print(f'LOSS  {epoch_send_logs["loss"]:2.2f} {epoch_recv_logs["loss"]:2.2f}')
         print(f'TEST  {epoch_send_logs["test_error"]:2.2f} {epoch_recv_logs["test_error"]:2.2f}\n')
@@ -162,11 +162,12 @@ def train(Sender, Recver, vocab_size, device,
         test_errors.append(epoch_send_logs['test_error'] + epoch_recv_logs['test_error'])
 
         if logfile:
-            dump = {'epoch': e,
+            if epoch > 0:
+                logfile.write(',\n')
+            dump = {'epoch': epoch,
                     'sender': epoch_send_logs,
                     'recver': epoch_recv_logs}
             json.dump(dump, logfile, indent=2)
-            logfile.write(',\n')
 
 
     if logfile:
