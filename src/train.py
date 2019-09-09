@@ -149,8 +149,8 @@ def train(Sender, Recver, vocab_size, device,
 
             send_test_error = loss_fn(action, send_target).mean(dim=1)
             recv_test_error = loss_fn(action, recv_target).mean(dim=1)
-            send_test_l1_error = loss_fn(action, send_target).mean(dim=1)
-            recv_test_l1_error = loss_fn(action, recv_target).mean(dim=1)
+            send_test_l1_error = l1_loss_fn(action, send_target).mean(dim=1)
+            recv_test_l1_error = l1_loss_fn(action, recv_target).mean(dim=1)
 
             epoch_send_test_error += send_test_error.mean().item()
             epoch_recv_test_error += recv_test_error.mean().item()

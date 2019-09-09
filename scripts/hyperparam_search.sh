@@ -6,7 +6,7 @@
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.err
 #SBATCH --job-name=emergent-hyperparam
 #SBATCH --mem=4GB
-#SBATCH --time=2:59:00
+#SBATCH --time=3:59:00
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=mnoukhov@gmail.com
 
@@ -18,13 +18,13 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="cat-deter-senderlola1-bias15"
+experiment_name="cat-deter-senderlola1-bias3-l2"
 config="cat-deter-senderlola-search.gin"
-params="Game.bias=15 DiceLOLASender.order=1"
+params="Game.bias=3 train.Loss=@CircleL2 DiceLOLASender.order=1"
 
 orion hunt -n $experiment_name	\
     --working-dir $SLURM_TMPDIR/$experiment_name \
-    --max-trials 75 \
+    --max-trials 50 \
     src/orion_runs.py --config configs/$config \
     --savedir {trial.working_dir} \
     --gin_param $params

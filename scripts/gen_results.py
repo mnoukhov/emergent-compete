@@ -30,8 +30,9 @@ def metric(seeds_dir, verbose=False):
     epoch = logs['epoch']
     sender = pd.DataFrame(logs['sender'].tolist()).join(logs['epoch'])
     recver = pd.DataFrame(logs['recver'].tolist()).join(logs['epoch'])
-    total_error = sender['test_error'] + recver['test_error']
-    return total_error.to_frame().groupby(epoch).mean()[-10:].mean()['test_error']
+    error_metric = 'test_l1_error' if 'test_l1_error' in sender else 'test_error'
+    total_error = sender[error_metric] + recver[error_metric]
+    return total_error.to_frame().groupby(epoch).mean()[-10:].mean()[error_metric]
 
 
 def metric_over_runs(all_results_dir, verbose=True):
@@ -108,7 +109,10 @@ def generate_results_folder(experiment_name, cluster_dir, output_dir):
 
     print('copying files')
     for run_path in best_run_paths:
-        shutil.copytree(str(run_path), results_folder_path / run_path.name)
+        dest = results_folder_path / run_path.name
+        if dest.exists():
+            shutil.rmtree(str(dest))
+        shutil.copytree(str(run_path), str(dest))
 
 
 if __name__ == '__main__':
