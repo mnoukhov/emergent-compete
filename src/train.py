@@ -84,7 +84,7 @@ def train(Sender, Recver, vocab_size, device,
             sender.load_state_dict(model_save['sender'])
             recver.load_state_dict(model_save['recver'])
 
-    test_errors = []
+    test_l1_errors = []
 
     for epoch in range(num_epochs):
         epoch_send_logs = {}
@@ -131,11 +131,13 @@ def train(Sender, Recver, vocab_size, device,
         epoch_recv_logs = _div_dict(epoch_recv_logs, game.num_batches)
 
         # Testing
-        test_loss_fn = CircleL1(game.num_points)
+        l1_loss_fn = CircleL1(game.num_points)
         sender.eval()
         recver.eval()
         epoch_send_test_error = 0
         epoch_recv_test_error = 0
+        epoch_send_test_l1_error = 0
+        epoch_recv_test_l1_error = 0
         for b, batch in enumerate(test_game):
             send_target, recv_target = batch
 
@@ -145,21 +147,27 @@ def train(Sender, Recver, vocab_size, device,
             if grounded:
                 action = message + action
 
-            send_test_error = test_loss_fn(action, send_target).mean(dim=1)
-            recv_test_error = test_loss_fn(action, recv_target).mean(dim=1)
+            send_test_error = loss_fn(action, send_target).mean(dim=1)
+            recv_test_error = loss_fn(action, recv_target).mean(dim=1)
+            send_test_l1_error = loss_fn(action, send_target).mean(dim=1)
+            recv_test_l1_error = loss_fn(action, recv_target).mean(dim=1)
 
             epoch_send_test_error += send_test_error.mean().item()
             epoch_recv_test_error += recv_test_error.mean().item()
+            epoch_send_test_l1_error += send_test_l1_error.mean().item()
+            epoch_recv_test_l1_error += recv_test_l1_error.mean().item()
 
         epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
         epoch_recv_logs['test_error'] = epoch_recv_test_error / test_game.num_batches
+        epoch_send_logs['test_l1_error'] = epoch_send_test_l1_error / test_game.num_batches
+        epoch_recv_logs['test_l1_error'] = epoch_recv_test_l1_error / test_game.num_batches
 
         print(f'EPOCH {epoch}')
         print(f'ERROR {epoch_send_logs["error"]:2.2f} {epoch_recv_logs["error"]:2.2f}')
         print(f'LOSS  {epoch_send_logs["loss"]:2.2f} {epoch_recv_logs["loss"]:2.2f}')
         print(f'TEST  {epoch_send_logs["test_error"]:2.2f} {epoch_recv_logs["test_error"]:2.2f}\n')
 
-        test_errors.append(epoch_send_logs['test_error'] + epoch_recv_logs['test_error'])
+        test_l1_errors.append(epoch_send_logs['test_l1_error'] + epoch_recv_logs['test_l1_error'])
 
         if logfile:
             if epoch > 0:
@@ -177,7 +185,7 @@ def train(Sender, Recver, vocab_size, device,
                     'recver': recver.state_dict(),
                     }, f'{savedir}/models.save')
 
-    last_errors_avg = sum(test_errors[-10:]) / 10
+    last_errors_avg = sum(test_l1_errors[-10:]) / 10
     print(f'Game Over: {last_errors_avg:2.2f}')
 
     return last_errors_avg
