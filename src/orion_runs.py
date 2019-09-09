@@ -13,7 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', '--gin_file', nargs='+')
     parser.add_argument('--gin_param', '-p', nargs='+')
     parser.add_argument('--savedir')
-    parser.add_argument('--objective', choices=['mean', 'min'], default='mean')
+    parser.add_argument('--aggregate_seeds', choices=['mean', 'min'], default='mean')
     args = parser.parse_args()
 
     # change device to torch.device
@@ -36,16 +36,14 @@ if __name__ == '__main__':
                            random_seed=random_seed)
         errors.append(best_error)
 
-    if args.objective == 'mean':
+    if args.aggregate_seeds == 'mean':
         objective = sum(errors) / len(errors)
-    elif args.objective == 'min':
+    elif args.aggregate_seeds == 'min':
         objective = min(errors)
-    else:
-        raise NotImplementedError(f'no objective: {args.objective}')
 
     print(f'{args.objective} error over seeds: {objective:2.2f}')
 
     report_results([dict(
-        name=f'{objective}_error_over_seeds',
+        name=f'{args.aggregate_seeds}_error_over_seeds',
         type='objective',
         value=objective)])
