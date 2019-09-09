@@ -41,7 +41,7 @@ if __name__ == '__main__':
     elif args.aggregate_seeds == 'min':
         objective = min(errors)
 
-    print(f'{args.objective} error over seeds: {objective:2.2f}')
+    print(f'{args.aggregate} error over seeds: {objective:2.2f}')
 
     report_results([dict(
         name=f'{args.aggregate_seeds}_error_over_seeds',

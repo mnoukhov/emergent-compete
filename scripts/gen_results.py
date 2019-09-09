@@ -10,6 +10,9 @@ def metric(seeds_dir, verbose=False):
     # average of last 10 epochs
     results_path = Path(seeds_dir)
 
+    if verbose:
+        print(results_path.name)
+
     run_logs = []
     for path in results_path.glob('*/logs.json'):
         if verbose:
@@ -18,7 +21,10 @@ def metric(seeds_dir, verbose=False):
             try:
                 run_logs.append(pd.read_json(logfile))
             except ValueError as e:
-                raise Exception(f'cant read json {path}: {e}')
+                raise ValueError(f'cant read json {path}: {e}')
+
+    if not run_logs:
+        return None
 
     logs = pd.concat(run_logs, ignore_index=True)
     epoch = logs['epoch']
@@ -31,18 +37,29 @@ def metric(seeds_dir, verbose=False):
 def metric_over_runs(all_results_dir, verbose=True):
     all_results_path = Path(all_results_dir)
 
+    empty =  []
+    errors = []
     min_score = None
     min_index = None
     for result_dir in all_results_path.iterdir():
         if result_dir.is_dir():
-            if verbose:
-                print(result_dir.name)
-            score = metric(result_dir, verbose)
-            if min_score is None or score < min_score:
-                min_score = score
-                min_index = result_dir.name
+            try:
+                score = metric(result_dir, verbose)
+            except ValueError:
+                errors.append(result_dir.name)
+            else:
+                if score is None:
+                    empty.append(result_dir.name)
+                elif min_score is None or score < min_score:
+                    min_score = score
+                    min_index = result_dir.name
+
+    if verbose:
+        print(f'Empty dirs {empty}\n')
+        print(f'Error dirs {errors}')
 
     return min_score, min_index
+
 
 def generate_results_csv(experiment_name, cluster_dir, output_dir='.'):
     output_path = Path(output_dir)
@@ -55,7 +72,7 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.'):
     ids = []
     run_paths = []
 
-    for exp_results_path in cluster_results_path.glob(f'{experiment_name}*'):
+    for exp_results_path in cluster_results_path.glob(f'{experiment_name}-*'):
         exp_full_name = exp_results_path.name
         bias_index = exp_full_name.find('bias') + 4
         name_index = len(exp_full_name) + 1

@@ -1,0 +1,17 @@
+include 'configs/cat-deter-senderlola.gin'
+
+train.num_epochs = 25
+train.batch_size = 64
+train.Loss = @CircleL1
+
+train.vocab_size = 128
+DiceLOLASender.order = 1
+DiceLOLASender.sender_lola_lr = 0.0075477765066344965
+DiceLOLASender.recver_lola_lr = 0.042705912726827014
+
+DiceLOLASender.lr = 0.0023374638472969953
+DiceLOLASender.hidden_size = 16
+DiceLOLASender.ent_reg = 0.9666769716721061
+
+Deterministic.lr = 0.04141842083161169
+Deterministic.hidden_size = 16

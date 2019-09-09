@@ -18,16 +18,16 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="cat-deter-senderlola1-bias15"
+experiment_name="cat-deter-senderlola-bias6"
 config="cat-deter-senderlola-search.gin"
-params="Game.bias=15 DiceLOLASender.order=1"
+params="Game.bias=6 DiceLOLASender.order=0"
 
 orion hunt -n $experiment_name	\
     --working-dir $SLURM_TMPDIR/$experiment_name \
     --max-trials 75 \
-    src/orion_runs.py --config configs/$config \
-    --savedir {trial.working_dir} \
-    --gin_param $params
+    #src/orion_runs.py --config configs/$config \
+    #--savedir {trial.working_dir} \
+    #--gin_param $params
 
 mkdir -p $SCRATCH/emergent-selfish/$experiment_name
 cp -r $SLURM_TMPDIR/$experiment_name/* $SCRATCH/emergent-selfish/$experiment_name/
