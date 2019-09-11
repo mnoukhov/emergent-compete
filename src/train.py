@@ -31,7 +31,7 @@ def _div_dict(d, n):
 
 @gin.configurable
 def train(Sender, Recver, vocab_size, device,
-          num_epochs, num_batches, batch_size,
+          num_epochs, num_batches, num_rounds, batch_size,
           grounded=False, savedir=None, loaddir=None,
           random_seed=None, Loss=None):
 
@@ -42,9 +42,11 @@ def train(Sender, Recver, vocab_size, device,
             torch.cuda.manual_seed(random_seed)
 
     game = Game(num_batches=num_batches,
+                num_rounds=num_rounds,
                 batch_size=batch_size,
                 device=device)
     test_game = Game(num_batches=1,
+                     num_rounds=num_rounds,
                      batch_size=100,
                      device=device,
                      training=False)
@@ -94,16 +96,26 @@ def train(Sender, Recver, vocab_size, device,
         sender.train()
         recver.train()
         for b, batch in enumerate(game):
-            send_target, recv_target = batch
+            send_round_target, recv_round_target = batch
 
-            message, send_logprobs, send_entropy = sender(send_target)
-            action, recv_logprobs, recv_entropy = recver(message)
+            send_errors = []
+            recv_errors = []
 
-            if grounded:
-                action = message + action
+            for r in range(num_rounds):
+                send_target = send_round_target[r]
+                recv_target = recv_round_target[r]
 
-            send_error = loss_fn(action, send_target).squeeze()
-            recv_error = loss_fn(action, recv_target).squeeze()
+                message, send_logprobs, send_entropy = sender(send_target)
+                action, recv_logprobs, recv_entropy = recver(message)
+
+                if grounded:
+                    action = message + action
+
+                send_errors.append(loss_fn(action, send_target).squeeze())
+                recv_errors.append(loss_fn(action, recv_target).squeeze())
+
+            send_error = send_errors[0]
+            recv_error = recv_errors[0]
 
             if sender.lola is True:
                 send_loss, send_logs = sender.loss(send_error, message, send_logprobs, send_entropy, batch, recver, loss_fn)
@@ -140,17 +152,29 @@ def train(Sender, Recver, vocab_size, device,
         epoch_recv_test_l1_error = 0
         for b, batch in enumerate(test_game):
             send_target, recv_target = batch
+            send_test_errors = []
+            recv_test_errors = []
+            send_test_l1_errors = []
+            recv_test_l1_errors = []
 
-            message, send_logprobs, send_entropy = sender(send_target)
-            action, recv_logprobs, recv_entropy = recver(message)
+            for r in range(num_rounds):
+                send_target = send_round_target[r]
+                recv_target = recv_round_target[r]
 
-            if grounded:
-                action = message + action
+                message, send_logprobs, send_entropy = sender(send_target)
+                action, recv_logprobs, recv_entropy = recver(message)
 
-            send_test_error = loss_fn(action, send_target).mean(dim=1)
-            recv_test_error = loss_fn(action, recv_target).mean(dim=1)
-            send_test_l1_error = l1_loss_fn(action, send_target).mean(dim=1)
-            recv_test_l1_error = l1_loss_fn(action, recv_target).mean(dim=1)
+                if grounded:
+                    action = message + action
+
+                send_test_errors.append(loss_fn(action, send_target).mean(dim=1))
+                recv_test_errors.append(loss_fn(action, recv_target).mean(dim=1))
+                send_test_l1_errors.append(l1_loss_fn(action, send_target).mean(dim=1))
+                recv_test_l1_errors.append(l1_loss_fn(action, recv_target).mean(dim=1))
+            send_test_error = send_test_errors[0]
+            recv_test_error = send_test_errors[0]
+            send_test_l1_error = send_test_l1_errors[0]
+            recv_test_l1_error = send_test_l1_errors[0]
 
             epoch_send_test_error += send_test_error.mean().item()
             epoch_recv_test_error += recv_test_error.mean().item()

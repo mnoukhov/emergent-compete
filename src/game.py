@@ -7,48 +7,63 @@ from torch.nn.modules.loss import _Loss
 
 
 class CirclePointsIter:
-    def __init__(self, num_points, bias, batch_size, num_batches, device, training):
+    def __init__(self, num_points, bias, batch_size, num_batches, num_rounds,
+                 device, training):
         self.num_points = num_points
         self.bias = bias
         self.batch_size = batch_size
         self.num_batches = num_batches
+        self.num_rounds = num_rounds
         self.device = device
         self.training = training
 
         self.batches = 0
+        self.test_send_targets = self.test_targets()
+
+    def test_targets(self):
+        rounds = [torch.arange(0, self.num_points,
+                               step=self.num_points / self.batch_size,
+                               device=self.device).unsqueeze(1)]
+
+        for _ in range(self.num_rounds - 1):
+            rounds.append(round[-1].clone() + self.num_points / self.num_rounds)
+
+        return torch.stack(rounds, dim=0)
 
     def __next__(self):
         if self.batches >= self.num_batches:
             raise StopIteration()
 
         if self.training:
-            send_targets = self.num_points * torch.rand(size=(self.batch_size, 1),
+            send_targets = self.num_points * torch.rand(size=(self.num_rounds, self.batch_size, 1),
                                                         device=self.device)
         else:
-            send_targets = torch.arange(0, self.num_points,
-                                        step=self.num_points / self.batch_size,
-                                        device=self.device).unsqueeze(1)
+            send_targets = self.test_send_targets.clone()
 
         recv_targets = (send_targets + self.bias) % self.num_points
 
         self.batches += 1
+
 
         return (send_targets, recv_targets)
 
 
 @gin.configurable
 class Game(DataLoader):
-    def __init__(self, num_points, bias, batch_size, num_batches, device='cpu', training=True):
+    def __init__(self, num_points, bias, batch_size, num_batches, num_rounds,
+                 device='cpu', training=True):
         self.batch_size = batch_size
         self.num_points = num_points
         self.bias = bias
         self.num_batches = num_batches
+        self.num_rounds = num_rounds
         self.device = device
         self.training = training
 
     def __iter__(self):
         return CirclePointsIter(self.num_points, self.bias, self.batch_size,
-                                self.num_batches, self.device, training=self.training)
+                                self.num_batches, self.num_rounds, self.device,
+                                self.training)
 
 
 @gin.configurable

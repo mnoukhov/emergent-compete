@@ -2,6 +2,7 @@
 train.vocab_size = 256
 train.num_epochs = 20
 train.num_batches = 250
+train.num_rounds = 1
 train.batch_size = 64
 train.device = "cpu"
 
