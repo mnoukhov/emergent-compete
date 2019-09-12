@@ -98,34 +98,53 @@ def train(Sender, Recver, vocab_size, device,
         for b, batch in enumerate(game):
             send_round_target, recv_round_target = batch
 
-            send_errors = []
-            recv_errors = []
+            sender_error_list = []
+            recver_error_list = []
+            sender_logprob_list = []
+            recver_logprob_list = []
+            sender_entropy_list = []
+            recver_entropy_list = []
+            message_list = []
+            action_list = []
 
             for r in range(num_rounds):
                 send_target = send_round_target[r]
                 recv_target = recv_round_target[r]
 
-                message, send_logprobs, send_entropy = sender(send_target)
-                action, recv_logprobs, recv_entropy = recver(message)
+                message, send_logprob, send_entropy = sender(send_target)
+                action, recv_logprob, recv_entropy = recver(message)
 
                 if grounded:
                     action = message + action
 
-                send_errors.append(loss_fn(action, send_target).squeeze())
-                recv_errors.append(loss_fn(action, recv_target).squeeze())
+                message_list.append(message)
+                action_list.append(action)
+                sender_logprob_list.append(send_logprob)
+                recver_logprob_list.append(recv_logprob)
+                sender_entropy_list.append(send_entropy)
+                recver_entropy_list.append(recv_entropy)
+                sender_error_list.append(loss_fn(action, send_target).squeeze())
+                recver_error_list.append(loss_fn(action, recv_target).squeeze())
 
-            send_error = send_errors[0]
-            recv_error = recv_errors[0]
+
+            messages = torch.stack(message_list, dim=0)
+            actions = torch.stack(action_list, dim=0)
+            sender_logprobs = torch.stack(sender_logprob_list, dim=0)
+            recver_logprobs = torch.stack(recver_logprob_list, dim=0)
+            sender_entropy = torch.stack(sender_entropy_list, dim=0)
+            recver_entropy = torch.stack(recver_entropy_list, dim=0)
+            sender_errors = torch.stack(sender_error_list, dim=0)
+            recver_errors = torch.stack(recver_error_list, dim=0)
 
             if sender.lola is True:
-                send_loss, send_logs = sender.loss(send_error, message, send_logprobs, send_entropy, batch, recver, loss_fn)
+                send_loss, send_logs = sender.loss(sender_errors, messages, sender_logprobs, sender_entropy, batch, recver, loss_fn)
             else:
-                send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
+                send_loss, send_logs = sender.loss(sender_errors, sender_logprobs, sender_entropy)
 
             if recver.lola is True:
-                recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy, batch, sender, loss_fn)
+                recv_loss, recv_logs = recver.loss(recver_errors, recver_logprobs, recver_entropy, batch, sender, loss_fn)
             else:
-                recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
+                recv_loss, recv_logs = recver.loss(recver_errors, recver_logprobs, recver_entropy)
 
             # sender must be updated before recver if using retain_graph
             send_opt.zero_grad()
@@ -151,7 +170,7 @@ def train(Sender, Recver, vocab_size, device,
         epoch_send_test_l1_error = 0
         epoch_recv_test_l1_error = 0
         for b, batch in enumerate(test_game):
-            send_target, recv_target = batch
+            send_round_target, recv_round_target = batch
             send_test_errors = []
             recv_test_errors = []
             send_test_l1_errors = []
@@ -171,10 +190,10 @@ def train(Sender, Recver, vocab_size, device,
                 recv_test_errors.append(loss_fn(action, recv_target).mean(dim=1))
                 send_test_l1_errors.append(l1_loss_fn(action, send_target).mean(dim=1))
                 recv_test_l1_errors.append(l1_loss_fn(action, recv_target).mean(dim=1))
-            send_test_error = send_test_errors[0]
-            recv_test_error = send_test_errors[0]
-            send_test_l1_error = send_test_l1_errors[0]
-            recv_test_l1_error = send_test_l1_errors[0]
+            send_test_error = torch.stack(send_test_errors)
+            recv_test_error = torch.stack(recv_test_errors)
+            send_test_l1_error = torch.stack(send_test_l1_errors)
+            recv_test_l1_error = torch.stack(send_test_l1_errors)
 
             epoch_send_test_error += send_test_error.mean().item()
             epoch_recv_test_error += recv_test_error.mean().item()

@@ -6,6 +6,7 @@ train.Recver = @Deterministic
 Reinforce.lr = 1e-3
 Reinforce.hidden_size = 32
 Reinforce.ent_reg = 1e-2
+Reinforce.gamma = 0.96
 
 Deterministic.lr = 1e-3
 Deterministic.hidden_size = 32

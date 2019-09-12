@@ -10,6 +10,7 @@ DiceLOLASender.recver_lola_lr = 5e-3
 DiceLOLASender.lr = 1e-3
 DiceLOLASender.hidden_size = 32
 DiceLOLASender.ent_reg = 1e-2
+DiceLOLASender.gamma = 0.95
 
 Deterministic.lr = 1e-3
 Deterministic.hidden_size = 32

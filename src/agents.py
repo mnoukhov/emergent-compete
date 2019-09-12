@@ -81,7 +81,7 @@ class Deterministic(Policy):
 @gin.configurable
 class Reinforce(Policy):
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, **kwargs):
+                 lr, gamma, ent_reg, **kwargs):
         super().__init__(**kwargs)
         self.input_size = input_size
         self.policy = nn.Sequential(
@@ -92,6 +92,7 @@ class Reinforce(Policy):
             nn.Linear(hidden_size, output_size),
             nn.LogSoftmax(dim=1))
 
+        self.gamma = gamma
         self.ent_reg = ent_reg
         self.lr = lr
         self.baseline = 0.
@@ -131,10 +132,14 @@ class Reinforce(Policy):
 
         return sample, logprobs, entropy
 
-    def loss(self, error, logprobs, entropy):
-        _, logs = super().loss(error)
+    def loss(self, errors, logprobs, entropy):
+        _, logs = super().loss(errors)
 
-        policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
+        # LOLA proposes this weird discounting
+        discounts = torch.tensor([self.gamma**t for t in range(error.size(0))])
+        discount_errors = discounts * errors
+
+        policy_loss = ((discount_errors.detach() - self.baseline) * logprobs).mean()
         entropy_loss = -entropy.mean() * self.ent_reg
         loss = policy_loss + entropy_loss
 
