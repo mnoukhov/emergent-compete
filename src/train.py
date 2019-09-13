@@ -32,8 +32,8 @@ def _div_dict(d, n):
 @gin.configurable
 def train(Sender, Recver, vocab_size, device,
           num_epochs, num_batches, num_rounds, batch_size,
-          grounded=False, savedir=None, loaddir=None,
-          random_seed=None, Loss=None):
+          test_batch_size=100, grounded=False, savedir=None,
+          loaddir=None, random_seed=None, Loss=None):
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -47,7 +47,7 @@ def train(Sender, Recver, vocab_size, device,
                 device=device)
     test_game = Game(num_batches=1,
                      num_rounds=num_rounds,
-                     batch_size=100,
+                     batch_size=test_batch_size,
                      device=device,
                      training=False)
 
@@ -107,13 +107,27 @@ def train(Sender, Recver, vocab_size, device,
             message_list = []
             action_list = []
 
+            prev_send_target = torch.zeros(batch_size, 1)
+            prev_message = torch.zeros(batch_size).long()
+            prev_action = torch.zeros(batch_size, 1)
+            prev_sender_error = torch.zeros(batch_size, 1)
+            prev_recver_error = torch.zeros(batch_size, 1)
+
             for r in range(num_rounds):
+                first_round = torch.ones(batch_size).long() if r == 0 else torch.zeros(batch_size).long()
                 send_target = send_round_target[r]
                 recv_target = recv_round_target[r]
 
-                message, send_logprob, send_entropy = sender(send_target)
-                action, recv_logprob, recv_entropy = recver(message)
-
+                message, send_logprob, send_entropy = sender(send_target,
+                                                             prev_send_target,
+                                                             prev_message,
+                                                             prev_sender_error,
+                                                             first_round)
+                action, recv_logprob, recv_entropy = recver(message,
+                                                            prev_message,
+                                                            prev_action,
+                                                            prev_recver_error,
+                                                            first_round)
                 if grounded:
                     action = message + action
 
@@ -123,8 +137,14 @@ def train(Sender, Recver, vocab_size, device,
                 recver_logprob_list.append(recv_logprob)
                 sender_entropy_list.append(send_entropy)
                 recver_entropy_list.append(recv_entropy)
-                sender_error_list.append(loss_fn(action, send_target).squeeze())
-                recver_error_list.append(loss_fn(action, recv_target).squeeze())
+                sender_error_list.append(loss_fn(action, send_target))
+                recver_error_list.append(loss_fn(action, recv_target))
+
+                prev_send_target = send_target
+                prev_message = message.clone().detach()
+                prev_action = action.clone().detach()
+                prev_sender_error = sender_error_list[-1].clone().detach()
+                prev_recver_error = recver_error_list[-1].clone().detach()
 
 
             messages = torch.stack(message_list, dim=0)
@@ -133,8 +153,8 @@ def train(Sender, Recver, vocab_size, device,
             recver_logprobs = torch.stack(recver_logprob_list, dim=0)
             sender_entropy = torch.stack(sender_entropy_list, dim=0)
             recver_entropy = torch.stack(recver_entropy_list, dim=0)
-            sender_errors = torch.stack(sender_error_list, dim=0)
-            recver_errors = torch.stack(recver_error_list, dim=0)
+            sender_errors = torch.stack(sender_error_list, dim=0).squeeze(2)
+            recver_errors = torch.stack(recver_error_list, dim=0).squeeze(2)
 
             if sender.lola is True:
                 send_loss, send_logs = sender.loss(sender_errors, messages, sender_logprobs, sender_entropy, batch, recver, loss_fn)
@@ -169,36 +189,54 @@ def train(Sender, Recver, vocab_size, device,
         epoch_recv_test_error = 0
         epoch_send_test_l1_error = 0
         epoch_recv_test_l1_error = 0
+
         for b, batch in enumerate(test_game):
             send_round_target, recv_round_target = batch
-            send_test_errors = []
-            recv_test_errors = []
-            send_test_l1_errors = []
-            recv_test_l1_errors = []
+            send_test_error_list = []
+            recv_test_error_list = []
+            send_test_l1_error_list = []
+            recv_test_l1_error_list = []
+
+            prev_send_target = torch.zeros(test_batch_size, 1)
+            prev_message = torch.zeros(test_batch_size).long()
+            prev_action = torch.zeros(test_batch_size, 1)
+            prev_sender_error = torch.zeros(test_batch_size, 1)
+            prev_recver_error = torch.zeros(test_batch_size, 1)
 
             for r in range(num_rounds):
+                first_round = torch.ones(test_batch_size).long() if r == 0 else torch.zeros(test_batch_size).long()
                 send_target = send_round_target[r]
                 recv_target = recv_round_target[r]
 
-                message, send_logprobs, send_entropy = sender(send_target)
-                action, recv_logprobs, recv_entropy = recver(message)
+                message, send_logprob, send_entropy = sender(send_target,
+                                                             prev_send_target,
+                                                             prev_message,
+                                                             prev_sender_error,
+                                                             first_round)
+                action, recv_logprob, recv_entropy = recver(message,
+                                                            prev_message,
+                                                            prev_action,
+                                                            prev_recver_error,
+                                                            first_round)
 
                 if grounded:
                     action = message + action
 
-                send_test_errors.append(loss_fn(action, send_target).mean(dim=1))
-                recv_test_errors.append(loss_fn(action, recv_target).mean(dim=1))
-                send_test_l1_errors.append(l1_loss_fn(action, send_target).mean(dim=1))
-                recv_test_l1_errors.append(l1_loss_fn(action, recv_target).mean(dim=1))
-            send_test_error = torch.stack(send_test_errors)
-            recv_test_error = torch.stack(recv_test_errors)
-            send_test_l1_error = torch.stack(send_test_l1_errors)
-            recv_test_l1_error = torch.stack(send_test_l1_errors)
+                send_test_error_list.append(loss_fn(action, send_target))
+                recv_test_error_list.append(loss_fn(action, recv_target))
+                send_test_l1_error_list.append(l1_loss_fn(action, send_target))
+                recv_test_l1_error_list.append(l1_loss_fn(action, recv_target))
 
-            epoch_send_test_error += send_test_error.mean().item()
-            epoch_recv_test_error += recv_test_error.mean().item()
-            epoch_send_test_l1_error += send_test_l1_error.mean().item()
-            epoch_recv_test_l1_error += recv_test_l1_error.mean().item()
+                prev_send_target = send_target
+                prev_message = message.clone().detach()
+                prev_action = action.clone().detach()
+                prev_sender_error = send_test_error_list[-1].clone().detach()
+                prev_recver_error = recv_test_error_list[-1].clone().detach()
+
+            epoch_send_test_error += torch.stack(send_test_error_list).mean().item()
+            epoch_recv_test_error += torch.stack(recv_test_error_list).mean().item()
+            epoch_send_test_l1_error += torch.stack(send_test_l1_error_list).mean().item()
+            epoch_recv_test_l1_error += torch.stack(recv_test_l1_error_list).mean().item()
 
         epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
         epoch_recv_logs['test_error'] = epoch_recv_test_error / test_game.num_batches

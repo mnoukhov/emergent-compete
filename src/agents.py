@@ -48,14 +48,29 @@ class Deterministic(Policy):
     def __init__(self, input_size, output_size, hidden_size, lr, **kwargs):
         super().__init__(**kwargs)
         self.policy = nn.Sequential(
-            RelaxedEmbedding(input_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
+            nn.Linear(5*hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size))
+        self.input_logit = RelaxedEmbedding(input_size, hidden_size)
+        self.output_logit = nn.Linear(output_size, hidden_size)
+        self.error_logit = nn.Linear(1, hidden_size)
+        self.first_logit = nn.Embedding(2, hidden_size)
+
         self.lr = lr
 
-    def forward(self, state):
+    def forward(self, input_, prev_input, prev_output, prev_error, first_round):
+        input_logit = self.input_logit(input_)
+        prev_input_logit = self.input_logit(prev_input)
+        prev_output_logit = self.output_logit(prev_output)
+        prev_error_logit = self.error_logit(prev_error)
+        first_round_logit = self.first_logit(first_round)
+
+        state = torch.cat((input_logit,
+                           prev_input_logit,
+                           prev_output_logit,
+                           prev_error_logit,
+                           first_round_logit), 1)
         action = self.policy(state)
 
         return action, torch.tensor(0.), torch.tensor(0.)
@@ -85,12 +100,15 @@ class Reinforce(Policy):
         super().__init__(**kwargs)
         self.input_size = input_size
         self.policy = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
+            nn.Linear(5*hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size),
             nn.LogSoftmax(dim=1))
+        self.input_logit = nn.Linear(input_size, hidden_size)
+        self.output_logit = nn.Embedding(output_size, hidden_size)
+        self.error_logit = nn.Linear(1, hidden_size)
+        self.first_logit = nn.Embedding(2, hidden_size)
 
         self.gamma = gamma
         self.ent_reg = ent_reg
@@ -98,7 +116,18 @@ class Reinforce(Policy):
         self.baseline = 0.
         self.n_update = 0.
 
-    def forward(self, state):
+    def forward(self, input_, prev_input, prev_output, prev_error, first_round):
+        input_logit = self.input_logit(input_)
+        prev_input_logit = self.input_logit(prev_input)
+        prev_output_logit = self.output_logit(prev_output)
+        prev_error_logit = self.error_logit(prev_error)
+        first_round_logit = self.first_logit(first_round)
+
+        state = torch.cat((input_logit,
+                           prev_input_logit,
+                           prev_output_logit,
+                           prev_error_logit,
+                           first_round_logit), 1)
         logits = self.policy(state)
         dist = Categorical(logits=logits)
         entropy = dist.entropy()
@@ -135,9 +164,13 @@ class Reinforce(Policy):
     def loss(self, errors, logprobs, entropy):
         _, logs = super().loss(errors)
 
-        # LOLA proposes this weird discounting
-        discounts = torch.tensor([self.gamma**t for t in range(error.size(0))])
-        discount_errors = discounts * errors
+        E = 0
+        discount_errors = []
+        for round_ in reversed(range(errors.size(0))):
+            E = errors[round_] + self.gamma * E
+            discount_errors.insert(0, E)
+
+        discount_errors = torch.stack(discount_errors)
 
         policy_loss = ((discount_errors.detach() - self.baseline) * logprobs).mean()
         entropy_loss = -entropy.mean() * self.ent_reg
@@ -147,7 +180,7 @@ class Reinforce(Policy):
 
         if self.training:
             self.n_update += 1.
-            self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
+            self.baseline += (discount_errors.detach().mean().item() - self.baseline) / (self.n_update)
 
         return loss, logs
 
