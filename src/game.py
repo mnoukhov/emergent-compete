@@ -26,7 +26,7 @@ class CirclePointsIter:
                                device=self.device).unsqueeze(1)]
 
         for _ in range(self.num_rounds - 1):
-            rounds.append(round[-1].clone() + self.num_points / self.num_rounds)
+            rounds.append(rounds[-1].clone() + self.num_points / self.num_rounds)
 
         return torch.stack(rounds, dim=0)
 

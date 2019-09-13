@@ -33,18 +33,20 @@ class DiceLOLASender(Reinforce):
         for step in range(self.order):
             recver_error_list = []
             for round_ in range(num_rounds):
+                sender_target = sender_targets[round_]
+                recver_target = sender_targets[round_]
                 if step == 0:
                     # we can use the actual messages our agent sent that round
                     message = messages[round_]
                 else:
-                    message, _, _ = sender(sender_targets)
+                    message, _, _ = sender(sender_target)
 
                 actions, _, _ = recver.functional_forward(message, recver_params)
-                recver_error_list.append(loss_fn(actions, recver_targets).squeeze(2))
+                recver_error_list.append(loss_fn(actions, recver_target).squeeze(1))
 
             # update recver
-            recver_error = torch.stack(recver_errors, dim=1)
-            recver_loss = recver_error.mean()
+            recver_errors = torch.stack(recver_error_list, dim=1)
+            recver_loss = recver_errors.mean()
             recver_grads = grad(recver_loss, recver_params, create_graph=True)
             recver_params = [param - grad * self.recver_lola_lr
                             for param, grad in zip(recver_params, recver_grads)]
@@ -54,39 +56,44 @@ class DiceLOLASender(Reinforce):
         logprob_list = []
         entropy_list = []
         for round_ in range(num_rounds):
+            sender_target = sender_targets[round_]
             if self.order == 0:
                 # use the actual messages sent by the agent
                 message = messages[round_]
                 logprob = logprobs[round_]
                 entropy = entropys[round_]
             else:
-                message, logprob, entropy = sender(sender_targets)
+                message, logprob, entropy = sender(sender_target)
 
             actions, _, _ = recver.functional_forward(message, recver_params)
-            error = loss_fn(actions, sender_targets).squeeze(2)
+            error = loss_fn(actions, sender_target).squeeze(1)
 
             error_list.append(error)
             message_list.append(message)
             logprob_list.append(logprob)
             entropy_list.append(entropy)
 
+
         errors = torch.stack(error_list, dim=0)
         messages = torch.stack(error_list, dim=0)
         logprobs = torch.stack(logprob_list, dim=0)
         entropys = torch.stack(entropy_list, dim=0)
 
-        # LOLA proposes this weird discounting
-        discounts = torch.tensor([self.gamma**t for t in range(num_rounds)])
+        # LOLA uses discounted errors and cumsum logprobs
+        # but this should be equivalent to discounting the future as usual
+        discounts = torch.tensor([self.gamma**t for t in range(num_rounds)]).unsqueeze(1)
         discount_error = discounts * errors
+        logprob_cumsum = torch.cumsum(logprobs, dim=0)
 
-        dice_loss = torch.sum(discount_error.detach() * magic_box(logprobs), dim=0).mean()
+        dice_loss = torch.sum(discount_error.detach() * magic_box(logprob_cumsum), dim=0).mean()
         entropy_loss = -entropy.mean() * sender.ent_reg
         baseline = torch.sum((1 - magic_box(logprobs)) * self.baseline, dim=0).mean()
         loss = dice_loss + entropy_loss + baseline
 
+
         if self.training:
             self.n_update += 1.
-            self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
+            self.baseline += (discount_error.detach().mean().item() - self.baseline) / (self.n_update)
 
         logs['lola_error'] = error.mean().item()
         logs['loss'] = loss.item()
