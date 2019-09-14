@@ -111,7 +111,7 @@ def train(Sender, Recver, vocab_size, device,
                 send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
 
             if recver.lola is True:
-                recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy, batch, sender, loss_fn)
+                recv_loss, recv_logs = recver.loss(recv_error, message, send_logprobs, send_entropy, batch, sender, loss_fn)
             else:
                 recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
