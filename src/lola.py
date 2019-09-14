@@ -168,6 +168,7 @@ class DiceLOLAReceiver(Deterministic):
 
         return loss, logs
 
+
 @gin.configurable
 class DeterExactLOLA(Deterministic):
     lola = True

@@ -51,6 +51,8 @@ class Deterministic(Policy):
             nn.ReLU(),
             nn.Linear(5*hidden_size, hidden_size),
             nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
             nn.Linear(hidden_size, output_size))
         self.input_logit = RelaxedEmbedding(input_size, hidden_size)
         self.output_logit = nn.Linear(output_size, hidden_size)
@@ -102,6 +104,8 @@ class Reinforce(Policy):
         self.policy = nn.Sequential(
             nn.ReLU(),
             nn.Linear(5*hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size),
             nn.LogSoftmax(dim=1))
