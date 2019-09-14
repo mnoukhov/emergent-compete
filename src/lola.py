@@ -103,8 +103,8 @@ class ExactLOLARecver(Deterministic):
         error = loss_fn(actions, recver_targets).squeeze()
         loss = error.mean()
 
-        logs['lola_error'] = error
-        logs['loss'] = loss
+        logs['lola_error'] = error.mean().item()
+        logs['loss'] = loss.item()
 
         return loss, logs
 
