@@ -18,7 +18,6 @@ class CirclePointsIter:
         self.training = training
 
         self.batches = 0
-        self.test_send_targets = self.test_targets()
 
     def test_targets(self):
         rounds = [torch.arange(0, self.num_points,
@@ -38,7 +37,7 @@ class CirclePointsIter:
             send_targets = self.num_points * torch.rand(size=(self.num_rounds, self.batch_size, 1),
                                                         device=self.device)
         else:
-            send_targets = self.test_send_targets.clone()
+            send_targets = self.test_targets()
 
         recv_targets = (send_targets + self.bias) % self.num_points
 
