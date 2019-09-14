@@ -96,7 +96,7 @@ def train(Sender, Recver, vocab_size, device,
         for b, batch in enumerate(game):
             send_target, recv_target = batch
 
-            message, send_logprobs, send_entropy = sender(send_target)
+            message, send_logprobs, send_entropy, send_rng_state = sender(send_target)
             action, recv_logprobs, recv_entropy = recver(message)
 
             if grounded:
@@ -111,7 +111,7 @@ def train(Sender, Recver, vocab_size, device,
                 send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
 
             if recver.lola is True:
-                recv_loss, recv_logs = recver.loss(recv_error, message, send_logprobs, send_entropy, batch, sender, loss_fn)
+                recv_loss, recv_logs = recver.loss(recv_error, batch, sender, send_rng_state, loss_fn)
             else:
                 recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
@@ -141,7 +141,7 @@ def train(Sender, Recver, vocab_size, device,
         for b, batch in enumerate(test_game):
             send_target, recv_target = batch
 
-            message, send_logprobs, send_entropy = sender(send_target)
+            message, send_logprobs, send_entropy, _ = sender(send_target)
             action, recv_logprobs, recv_entropy = recver(message)
 
             if grounded:

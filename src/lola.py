@@ -66,8 +66,7 @@ class ExactLOLARecver(Deterministic):
         self.order = order
         self.sender_lola_lr = sender_lola_lr
 
-    def loss(self, error, messages, sender_logprobs, sender_entropy,
-             batch, sender, loss_fn):
+    def loss(self, error, batch, sender, sender_rng_state, loss_fn):
         _, logs = super(Deterministic, self).loss(error)
         recver = self
 
@@ -75,8 +74,10 @@ class ExactLOLARecver(Deterministic):
                          for param in sender.parameters()]
         sender_targets, recver_targets = batch
 
+        torch.set_rng_state(sender_rng_state)
+
         for step in range(self.order):
-            # we can redo our actions because we're deterministic
+            messages, sender_logprobs, sender_entropy = sender.functional_forward(sender_targets, sender_params)
             actions, _, _ = recver(messages)
 
             sender_error = loss_fn(actions, sender_targets).squeeze()
@@ -86,20 +87,20 @@ class ExactLOLARecver(Deterministic):
             sender_baseline = ((1 - dice(sender_logprobs)) * sender.baseline).mean()
 
             sender_loss = sender_dice_loss + sender_entropy_loss + sender_baseline
-            sender_grads = grad(sender_loss, sender_params, create_graph=True)
+
+            if step == 0:
+                sender_grads = grad(sender_loss, sender_params, create_graph=True)
+            else:
+                sender_grads = grad(sender_loss, sender_params, create_graph=True)
 
             # update opponent
             sender_params = [param - grad * self.sender_lola_lr
                              for param, grad in zip(sender_params, sender_grads)]
 
-            messages, sender_logprobs, sender_entropy = sender.functional_forward(sender_targets, sender_params)
 
-
-        if self.order > 0:
-            # otherwise we use the inputs we got in the actual game
-            messages, logprobs, entropy = sender(sender_targets)
-
+        messages, sender_logprobs, sender_entropy = sender.functional_forward(sender_targets, sender_params)
         actions, _, _ = recver(messages)
+
         error = loss_fn(actions, recver_targets).squeeze()
         loss = error.mean()
 
