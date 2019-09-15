@@ -40,9 +40,9 @@ class DiceLOLASender(Reinforce):
             prev_recver_error = torch.zeros(batch_size, 1)
 
             for round_ in range(num_rounds):
-                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
                 sender_target = sender_targets[round_]
                 recver_target = sender_targets[round_]
+                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
                 if step == 0:
                     # we can use the actual messages our agent sent that round
                     message = messages[round_]
@@ -126,7 +126,7 @@ class DiceLOLASender(Reinforce):
 
         errors = torch.stack(error_list, dim=0)
         logprobs = torch.stack(logprob_list, dim=0)
-        entropys = torch.stack(entropy_list, dim=0)
+        entropy = torch.stack(entropy_list, dim=0)
 
         # LOLA-DiCE uses discounted errors and cumsum logprobs
         # but this should be equivalent to discounting the future as usual
@@ -184,8 +184,9 @@ class ExactLOLARecver(Deterministic):
             prev_recver_error = torch.zeros(batch_size, 1)
 
             for round_ in range(num_rounds):
-                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
                 sender_target = sender_targets[round_]
+                recver_target = recver_targets[round_]
+                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
                 # same as actual game because of rng state
                 message, sender_logprob, sender_entropy, _ = sender.functional_forward(sender_target,
                                                                                        prev_sender_target,
@@ -212,16 +213,16 @@ class ExactLOLARecver(Deterministic):
                 prev_sender_error = sender_error.clone().detach()
                 prev_recver_error = recver_error.clone().detach()
 
-            errors = torch.stack(error_list, dim=0)
-            logprobs = torch.stack(logprob_list, dim=0)
-            entropys = torch.stack(entropy_list, dim=0)
+            errors = torch.stack(sender_error_list, dim=0)
+            logprobs = torch.stack(sender_logprob_list, dim=0)
+            entropys = torch.stack(sender_entropy_list, dim=0)
 
             discounts = torch.tensor([sender.gamma**t for t in range(num_rounds)]).unsqueeze(1)
             discount_error = discounts * errors
             logprob_cumsum = torch.cumsum(logprobs, dim=0)
 
             dice_loss = torch.sum(discount_error.detach() * magic_box(logprob_cumsum), dim=0).mean()
-            entropy_loss = -entropy.mean() * sender.ent_reg
+            entropy_loss = -entropys.mean() * sender.ent_reg
             baseline = torch.sum((1 - magic_box(logprobs)) * sender.baseline, dim=0).mean()
             sender_loss = dice_loss + entropy_loss + baseline
             sender_grads = grad(sender_loss, sender_params, create_graph=True)

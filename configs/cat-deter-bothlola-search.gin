@@ -1,0 +1,21 @@
+include 'configs/cat-deter-bothlola.gin'
+
+train.vocab_size = vocabsize~choices(64,128,256)
+train.num_epochs = 25
+train.batch_size = 64
+train.num_rounds = 25
+train.Loss = @CircleL1
+
+DiceLOLASender.order = 0
+DiceLOLASender.recver_lola_lr = recver-lola-lr~loguniform(1e-4, 1e-2)
+
+DiceLOLASender.lr = sender-lr~loguniform(1e-4, 1e-2)
+DiceLOLASender.hidden_size = sender-hid~uniform(16,64, discrete=True)
+DiceLOLASender.ent_reg = sender-ent-reg~loguniform(1e-4,1)
+DiceLOLASender.gamma = gamma~uniform(0.95,1)
+
+ExactLOLARecver.order = 0
+ExactLOLARecver.sender_lola_lr = sender-lola-lr~loguniform(1e-4,1e-2)
+
+ExactLOLARecver.lr = recver-lr~loguniform(1e-4, 1e-2)
+ExactLOLARecver.hidden_size = recver-hid~uniform(16,64, discrete=True)
