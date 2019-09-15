@@ -15,78 +15,127 @@ def magic_box(x):
 class DiceLOLASender(Reinforce):
     lola = True
 
-    def __init__(self, order, sender_lola_lr, recver_lola_lr, **kwargs):
+    def __init__(self, order, recver_lola_lr, **kwargs):
         super().__init__(**kwargs)
         self.order = order
-        self.sender_lola_lr = sender_lola_lr
         self.recver_lola_lr = recver_lola_lr
 
     def loss(self, error, messages, logprobs, entropys, batch, recver, loss_fn):
         _, logs = super(Reinforce, self).loss(error)
         sender = self
         num_rounds = error.size(0)
+        batch_size = error.size(1)
 
         recver_params = [param.clone().detach().requires_grad_()
                          for param in recver.parameters()]
         sender_targets, recver_targets = batch
 
+        # Update opponent with lookaheads
         for step in range(self.order):
             recver_error_list = []
+            prev_sender_target = torch.zeros(batch_size, 1)
+            prev_message = torch.zeros(batch_size).long()
+            prev_action = torch.zeros(batch_size, 1)
+            prev_sender_error = torch.zeros(batch_size, 1)
+            prev_recver_error = torch.zeros(batch_size, 1)
+
             for round_ in range(num_rounds):
+                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
                 sender_target = sender_targets[round_]
                 recver_target = sender_targets[round_]
                 if step == 0:
                     # we can use the actual messages our agent sent that round
                     message = messages[round_]
                 else:
-                    message, _, _ = sender(sender_target)
+                    message, _, _, _ = sender(sender_target,
+                                              prev_sender_target,
+                                              prev_message,
+                                              prev_sender_error,
+                                              first_round)
 
-                actions, _, _ = recver.functional_forward(message, recver_params)
-                recver_error_list.append(loss_fn(actions, recver_target).squeeze(1))
+                action, _, _ = recver.functional_forward(message,
+                                                         prev_message,
+                                                         prev_action,
+                                                         prev_recver_error,
+                                                         first_round,
+                                                         recver_params)
+                sender_error = loss_fn(action, sender_target)
+                recver_error = loss_fn(action, recver_target)
 
-            # update recver
+                recver_error_list.append(recver_error.squeeze(1))
+
+                prev_sender_target = sender_target
+                prev_message = message.clone().detach()
+                prev_action = action.clone().detach()
+                prev_sender_error = sender_error.clone().detach()
+                prev_recver_error = recver_error.clone().detach()
+
             recver_errors = torch.stack(recver_error_list, dim=1)
             recver_loss = recver_errors.mean()
             recver_grads = grad(recver_loss, recver_params, create_graph=True)
             recver_params = [param - grad * self.recver_lola_lr
                             for param, grad in zip(recver_params, recver_grads)]
 
+        # Play against updated opponent
         error_list = []
-        message_list = []
         logprob_list = []
         entropy_list = []
+
+        prev_sender_target = torch.zeros(batch_size, 1)
+        prev_message = torch.zeros(batch_size).long()
+        prev_action = torch.zeros(batch_size, 1)
+        prev_sender_error = torch.zeros(batch_size, 1)
+        prev_recver_error = torch.zeros(batch_size, 1)
+
         for round_ in range(num_rounds):
             sender_target = sender_targets[round_]
+            recver_target = recver_targets[round_]
+            first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
+
             if self.order == 0:
-                # use the actual messages sent by the agent
+                # we can use the actual messages our agent sent that round
                 message = messages[round_]
                 logprob = logprobs[round_]
                 entropy = entropys[round_]
             else:
-                message, logprob, entropy = sender(sender_target)
+                message, logprob, entropy, _ = sender(sender_target,
+                                                      prev_sender_target,
+                                                      prev_message,
+                                                      prev_sender_error,
+                                                      first_round)
 
-            actions, _, _ = recver.functional_forward(message, recver_params)
-            error = loss_fn(actions, sender_target).squeeze(1)
+            action, _, _ = recver.functional_forward(message,
+                                                     prev_message,
+                                                     prev_action,
+                                                     prev_recver_error,
+                                                     first_round,
+                                                     recver_params)
 
-            error_list.append(error)
-            message_list.append(message)
+            sender_error = loss_fn(action, sender_target)
+            recver_error = loss_fn(action, recver_target)
+
+            error_list.append(sender_error.squeeze(1))
             logprob_list.append(logprob)
             entropy_list.append(entropy)
 
+            prev_sender_target = sender_target
+            prev_message = message.clone().detach()
+            prev_action = action.clone().detach()
+            prev_sender_error = sender_error.clone().detach()
+            prev_recver_error = recver_error.clone().detach()
 
         errors = torch.stack(error_list, dim=0)
-        messages = torch.stack(error_list, dim=0)
         logprobs = torch.stack(logprob_list, dim=0)
         entropys = torch.stack(entropy_list, dim=0)
 
-        # LOLA uses discounted errors and cumsum logprobs
+        # LOLA-DiCE uses discounted errors and cumsum logprobs
         # but this should be equivalent to discounting the future as usual
         discounts = torch.tensor([self.gamma**t for t in range(num_rounds)]).unsqueeze(1)
         discount_error = discounts * errors
         logprob_cumsum = torch.cumsum(logprobs, dim=0)
 
         dice_loss = torch.sum(discount_error.detach() * magic_box(logprob_cumsum), dim=0).mean()
-        entropy_loss = -entropy.mean() * sender.ent_reg
+        entropy_loss = -entropy.mean() * self.ent_reg
         baseline = torch.sum((1 - magic_box(logprobs)) * self.baseline, dim=0).mean()
         loss = dice_loss + entropy_loss + baseline
 
@@ -102,69 +151,125 @@ class DiceLOLASender(Reinforce):
 
 
 @gin.configurable
-class DiceLOLAReceiver(Deterministic):
+class ExactLOLARecver(Deterministic):
     lola = True
 
-    def __init__(self, sender, order, sender_lola_lr, recver_lola_lr, **kwargs):
+    def __init__(self, order, sender_lola_lr, **kwargs):
         super().__init__(**kwargs)
-        self.sender = sender(**kwargs)
         self.order = order
         self.sender_lola_lr = sender_lola_lr
-        self.recver_lola_lr = recver_lola_lr
 
-        self.n_update = 0
-        self.baseline = 0
+    def loss(self, error, batch, sender, sender_rng_state, loss_fn):
+        _, logs = super(Deterministic, self).loss(error)
+        recver = self
+        num_rounds = error.size(0)
+        batch_size = error.size(1)
 
-    @property
-    def lr(self):
-        return self.sender.lr
-
-    def forward(self, state):
-        return self.sender(state)
-
-    def loss(self, error, logprobs, entropy, batch, recver, loss_fn):
-        _, logs = super().loss(error)
-        sender = self.sender
-
-        recver_params = [param.clone().detach().requires_grad_()
-                         for param in recver.parameters()]
+        sender_params = [param.clone().detach().requires_grad_()
+                         for param in sender.parameters()]
         sender_targets, recver_targets = batch
 
+        torch.set_rng_state(sender_rng_state)
+
+        # Update opponent with lookaheads
         for step in range(self.order):
-            messages, sender_logprobs, sender_entropy = sender(sender_targets)
-            actions, _, _ = recver.functional_forward(messages, recver_params)
+            sender_error_list = []
+            sender_logprob_list = []
+            sender_entropy_list = []
 
-            sender_error = loss_fn(actions, sender_targets).squeeze()
-            sender_dice_loss = (sender_error.detach() * magic_box(sender_logprobs)).mean()
-            sender_entropy_loss = -sender_entropy.mean() * sender.ent_reg
-            sender_baseline = ((1 - magic_box(sender_logprobs)) * self.baseline).mean()
+            prev_sender_target = torch.zeros(batch_size, 1)
+            prev_message = torch.zeros(batch_size).long()
+            prev_action = torch.zeros(batch_size, 1)
+            prev_sender_error = torch.zeros(batch_size, 1)
+            prev_recver_error = torch.zeros(batch_size, 1)
 
-            sender_loss = sender_dice_loss + sender_entropy_loss + sender_baseline
+            for round_ in range(num_rounds):
+                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
+                sender_target = sender_targets[round_]
+                # same as actual game because of rng state
+                message, sender_logprob, sender_entropy, _ = sender.functional_forward(sender_target,
+                                                                                       prev_sender_target,
+                                                                                       prev_message,
+                                                                                       prev_sender_error,
+                                                                                       first_round,
+                                                                                       sender_params)
+                action, _, _ = recver(message,
+                                      prev_message,
+                                      prev_action,
+                                      prev_recver_error,
+                                      first_round)
+
+                sender_error = loss_fn(action, sender_target)
+                recver_error = loss_fn(action, recver_target)
+
+                sender_error_list.append(sender_error.squeeze(1))
+                sender_logprob_list.append(sender_logprob)
+                sender_entropy_list.append(sender_entropy)
+
+                prev_sender_target = sender_target
+                prev_message = message.clone().detach()
+                prev_action = action.clone().detach()
+                prev_sender_error = sender_error.clone().detach()
+                prev_recver_error = recver_error.clone().detach()
+
+            errors = torch.stack(error_list, dim=0)
+            logprobs = torch.stack(logprob_list, dim=0)
+            entropys = torch.stack(entropy_list, dim=0)
+
+            discounts = torch.tensor([sender.gamma**t for t in range(num_rounds)]).unsqueeze(1)
+            discount_error = discounts * errors
+            logprob_cumsum = torch.cumsum(logprobs, dim=0)
+
+            dice_loss = torch.sum(discount_error.detach() * magic_box(logprob_cumsum), dim=0).mean()
+            entropy_loss = -entropy.mean() * sender.ent_reg
+            baseline = torch.sum((1 - magic_box(logprobs)) * sender.baseline, dim=0).mean()
+            sender_loss = dice_loss + entropy_loss + baseline
             sender_grads = grad(sender_loss, sender_params, create_graph=True)
 
-            recver_error = loss_fn(actions, recver_targets).squeeze()
-            recver_loss = recver_error.mean()
-            recver_grads = grad(recver_loss, recver_params, create_graph=True)
+            sender_params = [param - grad * self.sender_lola_lr
+                            for param, grad in zip(sender_params, sender_grads)]
 
-            # update
-            recver_params = [param - grad * self.recver_lola_lr
-                            for param, grad in zip(recver_params, recver_grads)]
+        # Play against updated opponent
+        error_list = []
 
-        messages, logprobs, entropy = sender(sender_targets)
-        actions, _, _ = recver.functional_forward(messages, recver_params)
+        prev_sender_target = torch.zeros(batch_size, 1)
+        prev_message = torch.zeros(batch_size).long()
+        prev_action = torch.zeros(batch_size, 1)
+        prev_sender_error = torch.zeros(batch_size, 1)
+        prev_recver_error = torch.zeros(batch_size, 1)
 
-        error = loss_fn(actions, sender_targets).squeeze()
-        dice_loss = (error.detach() * magic_box(logprobs)).mean()
-        entropy_loss = -entropy.mean() * sender.ent_reg
-        baseline = ((1 - magic_box(logprobs)) * self.baseline).mean()
-        loss = dice_loss + entropy_loss + baseline
+        for round_ in range(num_rounds):
+            sender_target = sender_targets[round_]
+            recver_target = recver_targets[round_]
+            first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
+            message, sender_logprob, sender_entropy, _ = sender.functional_forward(sender_target,
+                                                                                   prev_sender_target,
+                                                                                   prev_message,
+                                                                                   prev_sender_error,
+                                                                                   first_round,
+                                                                                   sender_params)
+            action, _, _ = recver(message,
+                                  prev_message,
+                                  prev_action,
+                                  prev_recver_error,
+                                  first_round)
 
-        if self.training:
-            self.n_update += 1.
-            self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
+            sender_error = loss_fn(action, sender_target)
+            recver_error = loss_fn(action, recver_target)
 
-        logs['lola_error'] = error
-        logs['loss'] = loss
+            error_list.append(recver_error.squeeze(1))
+
+            prev_sender_target = sender_target
+            prev_message = message.clone().detach()
+            prev_action = action.clone().detach()
+            prev_sender_error = sender_error.clone().detach()
+            prev_recver_error = recver_error.clone().detach()
+
+        error = torch.stack(error_list, dim=0)
+        loss = error.mean()
+
+        logs['lola_error'] = error.mean().item()
+        logs['loss'] = loss.item()
 
         return loss, logs
 

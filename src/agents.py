@@ -54,7 +54,7 @@ class Deterministic(Policy):
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size))
-        self.input_logit = RelaxedEmbedding(input_size, hidden_size)
+        self.input_logit = nn.Embedding(input_size, hidden_size)
         self.output_logit = nn.Linear(output_size, hidden_size)
         self.error_logit = nn.Linear(1, hidden_size)
         self.first_logit = nn.Embedding(2, hidden_size)
@@ -77,12 +77,25 @@ class Deterministic(Policy):
 
         return action, torch.tensor(0.), torch.tensor(0.)
 
-    def functional_forward(self, x, weights):
-        out = relaxedembedding(x, weights[0])
+    def functional_forward(self, input_, prev_input, prev_output, prev_error, first_round, weights):
+        input_logit = F.embedding(input_, weights[6])
+        prev_input_logit = F.embedding(prev_input, weights[6])
+        prev_output_logit = F.linear(prev_output, weights[7], weights[8])
+        prev_error_logit = F.linear(prev_error, weights[9], weights[10])
+        first_round_logit = F.embedding(first_round, weights[11])
+
+        state = torch.cat((input_logit,
+                           prev_input_logit,
+                           prev_output_logit,
+                           prev_error_logit,
+                           first_round_logit), 1)
+
+        out = F.relu(state)
+        out = F.linear(out, weights[0], weights[1])
         out = F.relu(out)
-        out = F.linear(out, weights[1], weights[2])
+        out = F.linear(out, weights[2], weights[3])
         out = F.relu(out)
-        out = F.linear(out, weights[3], weights[4])
+        out = F.linear(out, weights[4], weights[5])
 
         return out, torch.tensor(0.), torch.tensor(0.)
 
@@ -121,6 +134,8 @@ class Reinforce(Policy):
         self.n_update = 0.
 
     def forward(self, input_, prev_input, prev_output, prev_error, first_round):
+        rng_state = torch.get_rng_state()
+
         input_logit = self.input_logit(input_)
         prev_input_logit = self.input_logit(prev_input)
         prev_output_logit = self.output_logit(prev_output)
@@ -143,10 +158,23 @@ class Reinforce(Policy):
 
         logprobs = dist.log_prob(sample)
 
-        return sample, logprobs, entropy
+        return sample, logprobs, entropy, rng_state
 
-    def functional_forward(self, x, weights):
-        out = F.linear(x, weights[0], weights[1])
+    def functional_forward(self, input_, prev_input, prev_output, prev_error, first_round, weights):
+        input_logit = F.linear(input_, weights[6], weights[7])
+        prev_input_logit = F.linear(prev_input, weights[6], weights[7])
+        prev_output_logit = F.embedding(prev_output, weights[8])
+        prev_error_logit = F.linear(prev_error, weights[9], weights[10])
+        first_round_logit = F.embedding(first_round, weights[11])
+
+        state = torch.cat((input_logit,
+                           prev_input_logit,
+                           prev_output_logit,
+                           prev_error_logit,
+                           first_round_logit), 1)
+
+        out = F.relu(state)
+        out = F.linear(out, weights[0], weights[1])
         out = F.relu(out)
         out = F.linear(out, weights[2], weights[3])
         out = F.relu(out)
@@ -163,7 +191,7 @@ class Reinforce(Policy):
 
         logprobs = dist.log_prob(sample)
 
-        return sample, logprobs, entropy
+        return sample, logprobs, entropy, None
 
     def loss(self, errors, logprobs, entropy):
         _, logs = super().loss(errors)

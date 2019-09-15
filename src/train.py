@@ -118,11 +118,11 @@ def train(Sender, Recver, vocab_size, device,
                 send_target = send_round_target[r]
                 recv_target = recv_round_target[r]
 
-                message, send_logprob, send_entropy = sender(send_target,
-                                                             prev_send_target,
-                                                             prev_message,
-                                                             prev_sender_error,
-                                                             first_round)
+                message, send_logprob, send_entropy, send_rng_state = sender(send_target,
+                                                                             prev_send_target,
+                                                                             prev_message,
+                                                                             prev_sender_error,
+                                                                             first_round)
                 action, recv_logprob, recv_entropy = recver(message,
                                                             prev_message,
                                                             prev_action,
@@ -162,7 +162,7 @@ def train(Sender, Recver, vocab_size, device,
                 send_loss, send_logs = sender.loss(sender_errors, sender_logprobs, sender_entropy)
 
             if recver.lola is True:
-                recv_loss, recv_logs = recver.loss(recver_errors, recver_logprobs, recver_entropy, batch, sender, loss_fn)
+                recv_loss, recv_logs = recver.loss(recver_errors, batch, sender, send_rng_state, loss_fn)
             else:
                 recv_loss, recv_logs = recver.loss(recver_errors, recver_logprobs, recver_entropy)
 
@@ -208,11 +208,11 @@ def train(Sender, Recver, vocab_size, device,
                 send_target = send_round_target[r]
                 recv_target = recv_round_target[r]
 
-                message, send_logprob, send_entropy = sender(send_target,
-                                                             prev_send_target,
-                                                             prev_message,
-                                                             prev_sender_error,
-                                                             first_round)
+                message, send_logprob, send_entropy, _ = sender(send_target,
+                                                                prev_send_target,
+                                                                prev_message,
+                                                                prev_sender_error,
+                                                                first_round)
                 action, recv_logprob, recv_entropy = recver(message,
                                                             prev_message,
                                                             prev_action,
