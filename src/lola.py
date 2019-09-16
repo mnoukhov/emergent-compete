@@ -20,7 +20,7 @@ class DiceLOLASender(Reinforce):
         self.order = order
         self.recver_lola_lr = recver_lola_lr
 
-    def loss(self, error, messages, logprobs, entropys, batch, recver, loss_fn):
+    def loss(self, error, batch, recver, start_rng_state, loss_fn):
         _, logs = super(Reinforce, self).loss(error)
         sender = self
         num_rounds = error.size(0)
@@ -30,6 +30,9 @@ class DiceLOLASender(Reinforce):
                          for param in recver.parameters()]
         sender_targets, recver_targets = batch
 
+        # Guarantee same first round as actual game
+        torch.set_rng_state(start_rng_state)
+
         # Update opponent with lookaheads
         for step in range(self.order):
             recver_error_list = []
@@ -38,22 +41,19 @@ class DiceLOLASender(Reinforce):
             prev_action = torch.zeros(batch_size, 1)
             prev_sender_error = torch.zeros(batch_size, 1)
             prev_recver_error = torch.zeros(batch_size, 1)
+            first_round = torch.ones(batch_size).long()
 
             for round_ in range(num_rounds):
                 sender_target = sender_targets[round_]
                 recver_target = sender_targets[round_]
-                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
-                if step == 0:
-                    # we can use the actual messages our agent sent that round
-                    message = messages[round_]
-                else:
-                    message, _, _, _ = sender(sender_target,
-                                              prev_sender_target,
-                                              prev_message,
-                                              prev_sender_error,
-                                              first_round)
 
-                action, _, _ = recver.functional_forward(message,
+                message, _, _ = sender(sender_target,
+                                       prev_sender_target,
+                                       prev_message,
+                                       prev_sender_error,
+                                       first_round)
+
+                action, _, _ = recver.functional_forward(message.detach(),
                                                          prev_message,
                                                          prev_action,
                                                          prev_recver_error,
@@ -69,6 +69,7 @@ class DiceLOLASender(Reinforce):
                 prev_action = action.clone().detach()
                 prev_sender_error = sender_error.clone().detach()
                 prev_recver_error = recver_error.clone().detach()
+                first_round = torch.zeros(batch_size).long()
 
             recver_errors = torch.stack(recver_error_list, dim=1)
             recver_loss = recver_errors.mean()
@@ -86,25 +87,19 @@ class DiceLOLASender(Reinforce):
         prev_action = torch.zeros(batch_size, 1)
         prev_sender_error = torch.zeros(batch_size, 1)
         prev_recver_error = torch.zeros(batch_size, 1)
+        first_round = torch.ones(batch_size).long()
 
         for round_ in range(num_rounds):
             sender_target = sender_targets[round_]
             recver_target = recver_targets[round_]
-            first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
 
-            if self.order == 0:
-                # we can use the actual messages our agent sent that round
-                message = messages[round_]
-                logprob = logprobs[round_]
-                entropy = entropys[round_]
-            else:
-                message, logprob, entropy, _ = sender(sender_target,
-                                                      prev_sender_target,
-                                                      prev_message,
-                                                      prev_sender_error,
-                                                      first_round)
+            message, logprob, entropy = sender(sender_target,
+                                               prev_sender_target,
+                                               prev_message,
+                                               prev_sender_error,
+                                               first_round)
 
-            action, _, _ = recver.functional_forward(message,
+            action, _, _ = recver.functional_forward(message.detach(),
                                                      prev_message,
                                                      prev_action,
                                                      prev_recver_error,
@@ -123,6 +118,7 @@ class DiceLOLASender(Reinforce):
             prev_action = action.clone().detach()
             prev_sender_error = sender_error.clone().detach()
             prev_recver_error = recver_error.clone().detach()
+            first_round = torch.zeros(batch_size).long()
 
         errors = torch.stack(error_list, dim=0)
         logprobs = torch.stack(logprob_list, dim=0)
@@ -138,7 +134,6 @@ class DiceLOLASender(Reinforce):
         entropy_loss = -entropy.mean() * self.ent_reg
         baseline = torch.sum((1 - magic_box(logprobs)) * self.baseline, dim=0).mean()
         loss = dice_loss + entropy_loss + baseline
-
 
         if self.training:
             self.n_update += 1.
@@ -159,7 +154,7 @@ class ExactLOLARecver(Deterministic):
         self.order = order
         self.sender_lola_lr = sender_lola_lr
 
-    def loss(self, error, batch, sender, sender_rng_state, loss_fn):
+    def loss(self, error, batch, sender, start_rng_state, loss_fn):
         _, logs = super(Deterministic, self).loss(error)
         recver = self
         num_rounds = error.size(0)
@@ -169,7 +164,8 @@ class ExactLOLARecver(Deterministic):
                          for param in sender.parameters()]
         sender_targets, recver_targets = batch
 
-        torch.set_rng_state(sender_rng_state)
+        # Guarantee same first round as actual game
+        torch.set_rng_state(start_rng_state)
 
         # Update opponent with lookaheads
         for step in range(self.order):
@@ -182,19 +178,18 @@ class ExactLOLARecver(Deterministic):
             prev_action = torch.zeros(batch_size, 1)
             prev_sender_error = torch.zeros(batch_size, 1)
             prev_recver_error = torch.zeros(batch_size, 1)
+            first_round = torch.ones(batch_size).long()
 
             for round_ in range(num_rounds):
                 sender_target = sender_targets[round_]
                 recver_target = recver_targets[round_]
-                first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
-                # same as actual game because of rng state
-                message, sender_logprob, sender_entropy, _ = sender.functional_forward(sender_target,
-                                                                                       prev_sender_target,
-                                                                                       prev_message,
-                                                                                       prev_sender_error,
-                                                                                       first_round,
-                                                                                       sender_params)
-                action, _, _ = recver(message,
+                message, sender_logprob, sender_entropy = sender.functional_forward(sender_target,
+                                                                                    prev_sender_target,
+                                                                                    prev_message,
+                                                                                    prev_sender_error,
+                                                                                    first_round,
+                                                                                    sender_params)
+                action, _, _ = recver(message.detach(),
                                       prev_message,
                                       prev_action,
                                       prev_recver_error,
@@ -212,6 +207,7 @@ class ExactLOLARecver(Deterministic):
                 prev_action = action.clone().detach()
                 prev_sender_error = sender_error.clone().detach()
                 prev_recver_error = recver_error.clone().detach()
+                first_round = torch.zeros(batch_size).long()
 
             errors = torch.stack(sender_error_list, dim=0)
             logprobs = torch.stack(sender_logprob_list, dim=0)
@@ -238,18 +234,18 @@ class ExactLOLARecver(Deterministic):
         prev_action = torch.zeros(batch_size, 1)
         prev_sender_error = torch.zeros(batch_size, 1)
         prev_recver_error = torch.zeros(batch_size, 1)
+        first_round = torch.ones(batch_size).long()
 
         for round_ in range(num_rounds):
             sender_target = sender_targets[round_]
             recver_target = recver_targets[round_]
-            first_round = torch.ones(batch_size).long() if round_ == 0 else torch.zeros(batch_size).long()
-            message, sender_logprob, sender_entropy, _ = sender.functional_forward(sender_target,
-                                                                                   prev_sender_target,
-                                                                                   prev_message,
-                                                                                   prev_sender_error,
-                                                                                   first_round,
-                                                                                   sender_params)
-            action, _, _ = recver(message,
+            message, sender_logprob, sender_entropy = sender.functional_forward(sender_target,
+                                                                                prev_sender_target,
+                                                                                prev_message,
+                                                                                prev_sender_error,
+                                                                                first_round,
+                                                                                sender_params)
+            action, _, _ = recver(message.detach(),
                                   prev_message,
                                   prev_action,
                                   prev_recver_error,
@@ -265,6 +261,7 @@ class ExactLOLARecver(Deterministic):
             prev_action = action.clone().detach()
             prev_sender_error = sender_error.clone().detach()
             prev_recver_error = recver_error.clone().detach()
+            first_round = torch.zeros(batch_size).long()
 
         error = torch.stack(error_list, dim=0)
         loss = error.mean()

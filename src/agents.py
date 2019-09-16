@@ -134,8 +134,6 @@ class Reinforce(Policy):
         self.n_update = 0.
 
     def forward(self, input_, prev_input, prev_output, prev_error, first_round):
-        rng_state = torch.get_rng_state()
-
         input_logit = self.input_logit(input_)
         prev_input_logit = self.input_logit(prev_input)
         prev_output_logit = self.output_logit(prev_output)
@@ -158,7 +156,7 @@ class Reinforce(Policy):
 
         logprobs = dist.log_prob(sample)
 
-        return sample, logprobs, entropy, rng_state
+        return sample, logprobs, entropy
 
     def functional_forward(self, input_, prev_input, prev_output, prev_error, first_round, weights):
         input_logit = F.linear(input_, weights[6], weights[7])
@@ -191,7 +189,7 @@ class Reinforce(Policy):
 
         logprobs = dist.log_prob(sample)
 
-        return sample, logprobs, entropy, None
+        return sample, logprobs, entropy
 
     def loss(self, errors, logprobs, entropy):
         _, logs = super().loss(errors)

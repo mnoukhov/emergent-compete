@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=def-bengioy
-#SBATCH --array=1-25
+#SBATCH --array=1-15
 #SBATCH --cpus-per-task=1
 #SBATCH --output=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.out
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.err
 #SBATCH --job-name=emergent-hyperparam
 #SBATCH --mem=4GB
-#SBATCH --time=2:59:00
+#SBATCH --time=7:59:00
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=mnoukhov@gmail.com
 
@@ -18,15 +18,15 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="cat-deter-round10-bias0-redo"
-config="cat-deter-search.gin"
-params="Game.bias=0 train.num_rounds=10"
+experiment_name="cat-deter-bothlola1-round10-bias9"
+config="cat-deter-bothlola-search.gin"
+params="Game.bias=9 train.num_rounds=10 DiceLOLASender.order=1 ExactLOLARecver.order=1"
 
 export PYTHONUNBUFFERED=1
 
 orion hunt -n $experiment_name	\
     --working-dir $SLURM_TMPDIR/$experiment_name \
-    --max-trials 50 \
+    --max-trials 75 \
     src/orion_runs.py \
     --config configs/$config \
     --savedir {trial.working_dir} \
