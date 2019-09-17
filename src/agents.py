@@ -98,8 +98,6 @@ class Reinforce(Policy):
         self.n_update = 0.
 
     def forward(self, state):
-        rng_state = torch.get_rng_state()
-
         logits = self.policy(state)
         dist = Categorical(logits=logits)
         entropy = dist.entropy()
@@ -111,7 +109,7 @@ class Reinforce(Policy):
 
         logprobs = dist.log_prob(sample)
 
-        return sample, logprobs, entropy, rng_state
+        return sample, logprobs, entropy
 
     def functional_forward(self, x, weights):
         out = F.linear(x, weights[0], weights[1])

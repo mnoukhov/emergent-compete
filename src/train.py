@@ -96,22 +96,24 @@ def train(Sender, Recver, vocab_size, device,
         for b, batch in enumerate(game):
             send_target, recv_target = batch
 
-            message, send_logprobs, send_entropy, send_rng_state = sender(send_target)
-            action, recv_logprobs, recv_entropy = recver(message)
+            start_rng_state = torch.get_rng_state()
+
+            message, send_logprobs, send_entropy = sender(send_target)
+            action, recv_logprobs, recv_entropy = recver(message.detach())
 
             if grounded:
-                action = message + action
+                action = message.reshape(action.shape).float() + action
 
             send_error = loss_fn(action, send_target).squeeze()
             recv_error = loss_fn(action, recv_target).squeeze()
 
             if sender.lola is True:
-                send_loss, send_logs = sender.loss(send_error, message, send_logprobs, send_entropy, batch, recver, loss_fn)
+                send_loss, send_logs = sender.loss(send_error, batch, recver, start_rng_state, loss_fn, grounded)
             else:
                 send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
 
             if recver.lola is True:
-                recv_loss, recv_logs = recver.loss(recv_error, batch, sender, send_rng_state, loss_fn)
+                recv_loss, recv_logs = recver.loss(recv_error, batch, sender, start_rng_state, loss_fn, grounded)
             else:
                 recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
@@ -141,11 +143,11 @@ def train(Sender, Recver, vocab_size, device,
         for b, batch in enumerate(test_game):
             send_target, recv_target = batch
 
-            message, send_logprobs, send_entropy, _ = sender(send_target)
-            action, recv_logprobs, recv_entropy = recver(message)
+            message, send_logprobs, send_entropy = sender(send_target)
+            action, recv_logprobs, recv_entropy = recver(message.detach())
 
             if grounded:
-                action = message + action
+                action = message.reshape(action.shape).float() + action
 
             send_test_error = loss_fn(action, send_target).mean(dim=1)
             recv_test_error = loss_fn(action, recv_target).mean(dim=1)

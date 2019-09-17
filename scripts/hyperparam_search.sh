@@ -18,9 +18,10 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-experiment_name="cat-deter-recverlola1-bias9"
+bias=15
+experiment_name="cat-deter-recverlola1-grounded-redo-bias$bias"
 config="cat-deter-recverlola-search.gin"
-params="Game.bias=9 DiceLOLASender.order=2 ExactLOLARecver.order=2"
+params="Game.bias=$bias ExactLOLARecver.order=1 train.grounded=True"
 
 orion hunt -n $experiment_name	\
     --working-dir $SLURM_TMPDIR/$experiment_name \

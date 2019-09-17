@@ -4,7 +4,6 @@ train.Sender = @DiceLOLASender
 train.Recver = @Deterministic
 
 DiceLOLASender.order = 0
-DiceLOLASender.sender_lola_lr = 5e-3
 DiceLOLASender.recver_lola_lr = 5e-3
 
 DiceLOLASender.lr = 1e-3

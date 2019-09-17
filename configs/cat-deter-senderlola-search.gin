@@ -1,17 +1,17 @@
 include 'configs/cat-deter-senderlola.gin'
 
-train.vocab_size = vocabsize~choices(64,128,256,1024)
+train.vocab_size = vocabsize~choices(64,128,256)
 train.num_epochs = 25
 train.batch_size = 64
 train.Loss = @CircleL1
 
 DiceLOLASender.order = 0
-DiceLOLASender.sender_lola_lr = sender-lola-lr~loguniform(1e-4, 1e-1)
-DiceLOLASender.recver_lola_lr = recver-lola-lr~loguniform(1e-4, 1e-1)
+DiceLOLASender.recver_lola_lr = recver-lola-lr~loguniform(1e-4, 1e-2)
 
-DiceLOLASender.lr = sender-lr~loguniform(1e-4, 1e-1)
-DiceLOLASender.hidden_size = sender-hid~choices(16,32,64)
+DiceLOLASender.lr = sender-lr~loguniform(1e-4, 1e-2)
+DiceLOLASender.hidden_size = sender-hid~uniform(16, 64, discrete=True)
 DiceLOLASender.ent_reg = sender-ent-reg~loguniform(1e-4,1)
 
-Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-1)
-Deterministic.hidden_size = deterministic-hid~choices(16,32,64)
+Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
+Deterministic.hidden_size = deterministic-hid~uniform(16, 64, discrete=True)
+
