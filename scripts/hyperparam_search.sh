@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=def-bengioy
-#SBATCH --array=1-4
+#SBATCH --array=1-2
 #SBATCH --cpus-per-task=1
 #SBATCH --output=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.out
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.err
 #SBATCH --job-name=emergent-hyperparam
 #SBATCH --mem=4GB
-#SBATCH --time=2:59:00
+#SBATCH --time=5:59:00
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=mnoukhov@gmail.com
 
@@ -19,9 +19,11 @@ pip install --no-index -r requirements.txt
 pip install -e .
 
 bias=15
-experiment_name="cat-deter-recverlola1-grounded-redo-bias$bias"
-config="cat-deter-recverlola-search.gin"
+experiment_name="gauss-deter-recverlola1-grounded-bias$bias"
+config="gauss-deter-recverlola-search.gin"
 params="Game.bias=$bias ExactLOLARecver.order=1 train.grounded=True"
+
+export PYTHONUNBUFFERED=1
 
 orion hunt -n $experiment_name	\
     --working-dir $SLURM_TMPDIR/$experiment_name \
