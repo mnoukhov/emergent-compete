@@ -1,9 +1,11 @@
 include 'configs/base.gin'
 
-train.Sender = @Deterministic
-train.Recver = @Deterministic
+train.Sender = @sender/Deterministic
+train.Recver = @recver/Deterministic
 train.vocab_size = 1
-train.num_epochs = 20
 
-Deterministic.lr = 1e-2
-Deterministic.hidden_size = 32
+@sender/Deterministic.lr = 1e-2
+@sender/Deterministic.hidden_size = 32
+
+@recver/Deterministic.lr = 1e-2
+@recver/Deterministic.hidden_size = 32

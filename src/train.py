@@ -99,8 +99,7 @@ def train(Sender, Recver, vocab_size, device,
             start_rng_state = torch.get_rng_state()
 
             message, send_logprobs, send_entropy = sender(send_target)
-            action, recv_logprobs, recv_entropy = recver(message.detach())
-
+            action, recv_logprobs, recv_entropy = recver(message)
             if grounded:
                 action = message.reshape(action.shape).float() + action
 
@@ -144,8 +143,7 @@ def train(Sender, Recver, vocab_size, device,
             send_target, recv_target = batch
 
             message, send_logprobs, send_entropy = sender(send_target)
-            action, recv_logprobs, recv_entropy = recver(message.detach())
-
+            action, recv_logprobs, recv_entropy = recver(message)
             if grounded:
                 action = message.reshape(action.shape).float() + action
 

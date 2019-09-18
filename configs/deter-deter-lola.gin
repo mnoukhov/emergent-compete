@@ -1,13 +1,14 @@
 include 'configs/base.gin'
 
-train.Sender = @Deterministic
-train.Recver = @DeterExactLOLA
+train.Sender = @DeterLOLASender
+train.Recver = @Deterministic
 train.vocab_size = 1
 train.num_epochs = 20
 
-DeterExactLOLA.agent = @Deterministic
-DeterExactLOLA.order = 1
-DeterExactLOLA.lola_lr = 1e-2
+DeterLOLASender.order = 1
+DeterLOLASender.recver_lola_lr = 1e-2
+DeterLOLASender.lr = 1e-2
+DeterLOLASender.hidden_size = 32
 
 Deterministic.lr = 1e-2
 Deterministic.hidden_size = 32

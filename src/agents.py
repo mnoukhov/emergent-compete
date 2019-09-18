@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.uniform import Uniform
 from torch.distributions.categorical import Categorical
+from torch.distributions.normal import Normal
 
 mode = Enum('Player', 'SENDER RECVER')
 
@@ -147,5 +148,71 @@ class Reinforce(Policy):
         return loss, logs
 
 
+@gin.configurable
+class Gaussian(Policy):
+    def __init__(self, input_size, output_size, hidden_size, lr, **kwargs):
+        super().__init__(**kwargs)
+        self.policy = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU())
+        self.mean = nn.Linear(hidden_size, output_size)
+        self.var = nn.Sequential(
+            nn.Linear(hidden_size, output_size),
+            nn.ReLU())
 
+        self.ent_reg = 0
+        self.lr = lr
+        self.baseline = 0.
+        self.n_update = 0.
 
+    def forward(self, state):
+        logits = self.policy(state)
+        mean = self.mean(logits)
+        var = self.var(logits) + 1e-10
+        dist = Normal(mean, var)
+        entropy = dist.entropy()
+
+        if self.training:
+            sample = dist.sample()
+        else:
+            sample = mean
+
+        logprobs = dist.log_prob(sample)
+
+        return sample, logprobs, entropy
+
+    def functional_forward(self, x, weights):
+        out = F.linear(x, weights[0], weights[1])
+        out = F.relu(out)
+        out = F.linear(out, weights[2], weights[3])
+        logits = F.relu(out)
+
+        mean = F.linear(logits, weights[4], weights[5])
+        var = F.relu(F.linear(logits, weights[6], weights[7])) + 1e-10
+
+        dist = Normal(mean, var)
+        entropy = dist.entropy()
+
+        if self.training:
+            sample = dist.sample()
+        else:
+            sample = mean
+
+        logprobs = dist.log_prob(sample)
+
+        return sample, logprobs, entropy
+
+    def loss(self, error, logprobs, entropy):
+        _, logs = super().loss(error)
+
+        loss = ((error.detach() - self.baseline) * logprobs).mean()
+
+        logs['loss'] = loss.item()
+
+        if self.training:
+            self.n_update += 1.
+            self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
+
+        return loss, logs

@@ -2,6 +2,7 @@ include 'configs/base.gin'
 
 train.Sender = @Reinforce
 train.Recver = @Deterministic
+train.vocab_size = 256
 
 Reinforce.lr = 1e-3
 Reinforce.hidden_size = 32

@@ -1,0 +1,17 @@
+include 'configs/gauss-deter.gin'
+
+train.num_epochs = 25
+train.num_batches = 250
+train.batch_size = 64
+train.Sender = @Gaussian
+train.Recver = @Deterministic
+train.Loss = @CircleL1
+
+Gaussian.lr = gaussian-lr~loguniform(1e-4, 1e-2)
+Gaussian.hidden_size = gaussian-hid~uniform(16, 64, discrete=True)
+
+Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
+Deterministic.hidden_size = deterministic-hid~uniform(16, 64, discrete=True)
+
+Game.bias = 0
+Game.num_points = 36

@@ -1,12 +1,12 @@
-include 'configs/base.gin'
+include 'configs/deter-deter.gin'
 
 train.Sender = @sender/Deterministic
 train.Recver = @recver/Deterministic
 train.vocab_size = 1
 train.num_epochs = 25
-train.Loss = loss~choices("@CircleL1","@CircleL2","@CosineLoss")
+train.Loss = @CircleL1
 
-sender/Deterministic.lr = sender-lr~loguniform(1e-4, 1e-1)
-sender/Deterministic.hidden_size = sender-hid~uniform(10, 64, discrete=True)
-recver/Deterministic.lr = recver-lr~loguniform(1e-4, 1e-1)
-recver/Deterministic.hidden_size = recver-hid~uniform(10, 64, discrete=True)
+sender/Deterministic.lr = sender-lr~loguniform(1e-4, 1e-2)
+sender/Deterministic.hidden_size = sender-hid~uniform(16, 64, discrete=True)
+recver/Deterministic.lr = recver-lr~loguniform(1e-4, 1e-2)
+recver/Deterministic.hidden_size = recver-hid~uniform(16, 64, discrete=True)
