@@ -130,6 +130,7 @@ class ExactLOLARecver(Deterministic):
 @gin.configurable
 class GaussianLOLASender(Gaussian):
     lola = True
+    retain_graph = True
 
     def __init__(self, order, recver_lola_lr, **kwargs):
         super().__init__(**kwargs)

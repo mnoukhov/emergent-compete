@@ -150,6 +150,8 @@ class Reinforce(Policy):
 
 @gin.configurable
 class Gaussian(Policy):
+    retain_graph = True
+
     def __init__(self, input_size, output_size, hidden_size, lr, **kwargs):
         super().__init__(**kwargs)
         self.policy = nn.Sequential(
@@ -175,7 +177,7 @@ class Gaussian(Policy):
         entropy = dist.entropy()
 
         if self.training:
-            sample = dist.sample()
+            sample = dist.rsample()
         else:
             sample = mean
 
@@ -196,7 +198,7 @@ class Gaussian(Policy):
         entropy = dist.entropy()
 
         if self.training:
-            sample = dist.sample()
+            sample = dist.rsample()
         else:
             sample = mean
 
@@ -207,7 +209,9 @@ class Gaussian(Policy):
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
 
-        loss = ((error.detach() - self.baseline) * logprobs).mean()
+        grad_loss = error.mean()
+        policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
+        loss = grad_loss + policy_loss
 
         logs['loss'] = loss.item()
 
