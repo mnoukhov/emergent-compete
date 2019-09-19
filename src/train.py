@@ -85,6 +85,9 @@ def train(Sender, Recver, vocab_size, device,
             recver.load_state_dict(model_save['recver'])
 
     test_l1_errors = []
+    test_l2_errors = []
+    l1_loss_fn = CircleL1(game.num_points)
+    l2_loss_fn = CircleL2(game.num_points)
 
     for epoch in range(num_epochs):
         epoch_send_logs = {}
@@ -132,13 +135,14 @@ def train(Sender, Recver, vocab_size, device,
         epoch_recv_logs = _div_dict(epoch_recv_logs, game.num_batches)
 
         # Testing
-        l1_loss_fn = CircleL1(game.num_points)
         sender.eval()
         recver.eval()
         epoch_send_test_error = 0
         epoch_recv_test_error = 0
         epoch_send_test_l1_error = 0
         epoch_recv_test_l1_error = 0
+        epoch_send_test_l2_error = 0
+        epoch_recv_test_l2_error = 0
         for b, batch in enumerate(test_game):
             send_target, recv_target = batch
 
@@ -151,16 +155,22 @@ def train(Sender, Recver, vocab_size, device,
             recv_test_error = loss_fn(action, recv_target).mean(dim=1)
             send_test_l1_error = l1_loss_fn(action, send_target).mean(dim=1)
             recv_test_l1_error = l1_loss_fn(action, recv_target).mean(dim=1)
+            send_test_l2_error = l2_loss_fn(action, send_target).mean(dim=1)
+            recv_test_l2_error = l2_loss_fn(action, recv_target).mean(dim=1)
 
             epoch_send_test_error += send_test_error.mean().item()
             epoch_recv_test_error += recv_test_error.mean().item()
             epoch_send_test_l1_error += send_test_l1_error.mean().item()
             epoch_recv_test_l1_error += recv_test_l1_error.mean().item()
+            epoch_send_test_l2_error += send_test_l2_error.mean().item()
+            epoch_recv_test_l2_error += recv_test_l2_error.mean().item()
 
         epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
         epoch_recv_logs['test_error'] = epoch_recv_test_error / test_game.num_batches
         epoch_send_logs['test_l1_error'] = epoch_send_test_l1_error / test_game.num_batches
         epoch_recv_logs['test_l1_error'] = epoch_recv_test_l1_error / test_game.num_batches
+        epoch_send_logs['test_l2_error'] = epoch_send_test_l2_error / test_game.num_batches
+        epoch_recv_logs['test_l2_error'] = epoch_recv_test_l2_error / test_game.num_batches
 
         print(f'EPOCH {epoch}')
         print(f'ERROR {epoch_send_logs["error"]:2.2f} {epoch_recv_logs["error"]:2.2f}')
