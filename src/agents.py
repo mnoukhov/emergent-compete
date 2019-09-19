@@ -190,7 +190,7 @@ class Gaussian(Policy):
         logits = F.relu(out)
 
         mean = F.linear(logits, weights[4], weights[5])
-        var = F.relu(F.linear(logits, weights[6], weights[7])) + 1e-10
+        var = F.relu(F.linear(logits, weights[6], weights[7])) + 1e-7
 
         dist = Normal(mean, var)
         entropy = dist.entropy()

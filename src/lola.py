@@ -95,11 +95,15 @@ class ExactLOLARecver(Deterministic):
                 action = message.reshape(action.shape).float() + action
 
             sender_error = loss_fn(action, sender_targets).squeeze()
-            sender_dice_loss = (sender_error.detach() * dice(sender_logprobs)).mean()
-            sender_entropy_loss = -sender_entropy.mean() * sender.ent_reg
-            # assume a fixed baseline
-            sender_baseline = ((1 - dice(sender_logprobs)) * sender.baseline).mean()
-            sender_loss = sender_dice_loss + sender_entropy_loss + sender_baseline
+
+            if isinstance(sender, Reinforce) or isinstance(sender, Gaussian):
+                sender_loss, _ = sender.loss(sender_error, sender_logprobs, sender_entropy)
+            else:
+                sender_dice_loss = (sender_error.detach() * dice(sender_logprobs)).mean()
+                sender_entropy_loss = -sender_entropy.mean() * sender.ent_reg
+                # assume a fixed baseline
+                sender_baseline = ((1 - dice(sender_logprobs)) * sender.baseline).mean()
+                sender_loss = sender_dice_loss + sender_entropy_loss + sender_baseline
 
             sender_grads = grad(sender_loss, sender_params, create_graph=True)
 
