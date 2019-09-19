@@ -1,9 +1,6 @@
 include 'configs/cat-deter.gin'
 
 train.vocab_size = vocabsize~choices(64,128,256)
-train.num_epochs = 25
-train.num_batches = 250
-train.batch_size = 64
 train.Sender = @Reinforce
 train.Recver = @Deterministic
 train.Loss = @CircleL1
@@ -14,6 +11,3 @@ Reinforce.ent_reg = reinforce-ent-reg~loguniform(1e-4, 1)
 
 Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
 Deterministic.hidden_size = deterministic-hid~uniform(16, 64, discrete=True)
-
-Game.bias = 0
-Game.num_points = 36

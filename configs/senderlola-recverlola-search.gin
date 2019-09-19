@@ -1,8 +1,6 @@
-include 'configs/cat-deter-bothlola.gin'
+include 'configs/senderlola-recverlola.gin'
 
 train.vocab_size = vocabsize~choices(64,128,256)
-train.num_epochs = 25
-train.batch_size = 64
 train.Loss = @CircleL1
 
 DiceLOLASender.order = 0

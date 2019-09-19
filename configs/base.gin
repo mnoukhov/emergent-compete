@@ -1,6 +1,5 @@
 # Main
-train.vocab_size = 256
-train.num_epochs = 20
+train.num_epochs = 30
 train.num_batches = 250
 train.batch_size = 64
 train.device = "cpu"
@@ -8,4 +7,3 @@ train.device = "cpu"
 # Game
 Game.num_points = 36
 Game.bias = 0
-

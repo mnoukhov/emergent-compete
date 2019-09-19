@@ -1,8 +1,6 @@
-include 'configs/cat-deter-recverlola.gin'
+include 'configs/cat-recverlola.gin'
 
 train.vocab_size = vocabsize~choices(64,128,256)
-train.num_epochs = 25
-train.batch_size = 64
 train.Loss = @CircleL1
 
 Reinforce.lr = reinforce-lr~loguniform(1e-4, 1e-2)

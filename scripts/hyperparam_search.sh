@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=def-bengioy
-#SBATCH --array=1-2
+#SBATCH --array=1-3
 #SBATCH --cpus-per-task=1
 #SBATCH --output=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.out
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.err
 #SBATCH --job-name=emergent-hyperparam
 #SBATCH --mem=4GB
-#SBATCH --time=5:59:00
+#SBATCH --time=8:59:00
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=mnoukhov@gmail.com
 
@@ -18,10 +18,10 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-bias=15
-experiment_name="gauss-deter-recverlola1-grounded-bias$bias"
-config="gauss-deter-recverlola-search.gin"
-params="Game.bias=$bias ExactLOLARecver.order=1 train.grounded=True"
+bias=9
+experiment_name="gauss-deter-grounded-bias$bias-redo"
+config="gauss-deter-search.gin"
+params="Game.bias=$bias train.grounded=True"
 
 export PYTHONUNBUFFERED=1
 
