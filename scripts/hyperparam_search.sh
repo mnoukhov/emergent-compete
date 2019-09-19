@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=def-bengioy
-#SBATCH --array=1-3
+#SBATCH --array=1-2
 #SBATCH --cpus-per-task=1
 #SBATCH --output=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.out
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.err
@@ -19,9 +19,9 @@ pip install --no-index -r requirements.txt
 pip install -e .
 
 bias=9
-experiment_name="gauss-deter-grounded-bias$bias-redo"
+experiment_name="gauss-deter-fixed-bias$bias"
 config="gauss-deter-search.gin"
-params="Game.bias=$bias train.grounded=True"
+params="Game.bias=$bias"
 
 export PYTHONUNBUFFERED=1
 

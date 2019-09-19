@@ -89,7 +89,7 @@ class ExactLOLARecver(Deterministic):
 
         for step in range(self.order):
             message, sender_logprobs, sender_entropy = sender.functional_forward(sender_targets, sender_params)
-            action, _, _ = recver(message)
+            action, _, _ = recver(message.detach())
 
             if grounded:
                 action = message.reshape(action.shape).float() + action
@@ -113,7 +113,7 @@ class ExactLOLARecver(Deterministic):
 
 
         message, _, _ = sender.functional_forward(sender_targets, sender_params)
-        action, _, _ = recver(message)
+        action, _, _ = recver(message.detach())
 
         if grounded:
             action = message.reshape(action.shape).float() + action
@@ -220,7 +220,7 @@ class DeterLOLASender(Deterministic):
                             for param, grad in zip(recver_params, recver_grads)]
 
         message, _, _ = sender(sender_targets)
-        action, _, _ = recver.functional_forward(message, recver_params)
+        action, _, _ = recver.functional_forward(message.detach(), recver_params)
 
         if grounded:
             action = message + action
