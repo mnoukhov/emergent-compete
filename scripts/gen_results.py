@@ -32,7 +32,7 @@ def metric(seeds_dir, error_name='l1', verbose=False):
     recver = pd.DataFrame(logs['recver'].tolist()).join(logs['epoch'])
     if error_name == 'l1' and 'test_l1_error' in sender:
         error_metric = 'test_l1_error'
-    if error_name == 'l2' and 'test_l2_error' in sender:
+    elif error_name == 'l2' and 'test_l2_error' in sender:
         error_metric = 'test_l2_error'
     elif error_name == 'train':
         error_metric = 'test_error'
@@ -50,10 +50,16 @@ def metric_over_runs(all_results_dir, error_name, verbose=True):
     errors = []
     min_score = None
     min_index = None
+    min_l1 = None
+    num_runs = 0
     for result_dir in all_results_path.iterdir():
         if result_dir.is_dir():
             try:
                 score = metric(result_dir, error_name, verbose)
+                if error_name != 'l1':
+                    l1 = metric(result_dir, 'l1', verbose)
+                else:
+                    l1 = score
             except ValueError:
                 errors.append(result_dir.name)
             else:
@@ -62,12 +68,15 @@ def metric_over_runs(all_results_dir, error_name, verbose=True):
                 elif min_score is None or score < min_score:
                     min_score = score
                     min_index = result_dir.name
+                    min_l1 = l1
+                    num_runs += 1
 
     if verbose:
-        print(f'Empty dirs {empty}\n')
+        print(f'Empty dirs {empty}')
         print(f'Error dirs {errors}')
+        print(f'Number of runs {num_runs}')
 
-    return min_score, min_index
+    return min_score, min_index, min_l1
 
 
 def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_name='l1'):
@@ -78,6 +87,7 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
 
     biases = []
     best_errors = []
+    best_l1s = []
     ids = []
     run_paths = []
 
@@ -86,12 +96,13 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
         bias_index = exp_full_name.find('bias') + 4
         name_index = len(exp_full_name) + 1
         print(f'running on {exp_full_name}')
-        error, run_name = metric_over_runs(exp_results_path, error_name=error_name, verbose=False)
+        error, run_name, l1 = metric_over_runs(exp_results_path, error_name=error_name, verbose=False)
         if error is None:
             print(f'no results in {exp_full_name}')
         else:
             biases.append(int(exp_full_name[bias_index:]))
             best_errors.append(error)
+            best_l1s.append(l1)
             ids.append(run_name[name_index:])
             run_paths.append(exp_results_path / run_name)
 
@@ -100,9 +111,9 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
 
     with open(output_path / 'results.csv', 'w') as f:
         writer = csv.writer(f)
-        writer.writerow(['bias', 'error', 'id'])
-        for bias, error, id_ in sorted(zip(biases, best_errors, ids)):
-            writer.writerow([bias, error, id_])
+        writer.writerow(['bias', 'error', 'id', 'l1'])
+        for bias, error, id_, l1 in sorted(zip(biases, best_errors, ids, best_l1s)):
+            writer.writerow([bias, error, id_, l1])
 
     return run_paths
 
