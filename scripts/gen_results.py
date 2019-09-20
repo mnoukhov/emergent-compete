@@ -70,6 +70,8 @@ def metric_over_runs(all_results_dir, error_name, verbose=True):
                     min_index = result_dir.name
                     min_l1 = l1
                     num_runs += 1
+                else:
+                    num_runs += 1
 
     if verbose:
         print(f'Empty dirs {empty}')

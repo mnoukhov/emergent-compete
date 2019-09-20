@@ -19,7 +19,7 @@ pip install --no-index -r requirements.txt
 pip install -e .
 
 bias=9
-experiment_name="gauss-deter-fixed-bias$bias"
+experiment_name="cat-recverlola-bias$bias"
 config="gauss-deter-search.gin"
 params="Game.bias=$bias"
 
