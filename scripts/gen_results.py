@@ -120,17 +120,16 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
     return run_paths
 
 
-def generate_results_folder(experiment_name, cluster_dir, output_dir, error_name):
-    output_path = Path(output_dir)
-    results_folder_path = output_path / experiment_name
-    results_folder_path.mkdir(exist_ok=True)
+def generate_results_folder(experiment_name, cluster_dir, output_path, error_name):
+    output_path = Path(output_path)
+    output_path.mkdir(exist_ok=True)
 
     print('generating results csv')
-    best_run_paths = generate_results_csv(experiment_name, cluster_dir, results_folder_path, error_name)
+    best_run_paths = generate_results_csv(experiment_name, cluster_dir, output_path, error_name)
 
     print('copying files')
     for run_path in best_run_paths:
-        dest = results_folder_path / run_path.name
+        dest = output_path / run_path.name
         if dest.exists():
             shutil.rmtree(str(dest))
         shutil.copytree(str(run_path), str(dest))
@@ -145,7 +144,7 @@ if __name__ == '__main__':
     gen_parser.set_defaults(command='generate')
     gen_parser.add_argument('--experiment-name', '--exp-name', required=True)
     gen_parser.add_argument('--results-dir', default='/scratch/noukhovm/emergent-selfish')
-    gen_parser.add_argument('--output-dir', default='/home/noukhovm/emergent-selfish/results/')
+    gen_parser.add_argument('--output-dir', default=None)
     gen_parser.add_argument('--error', default='l1')
 
     # get error metric over hyperparams
@@ -157,6 +156,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.command == 'generate':
-        generate_results_folder(args.experiment_name, args.results_dir, args.output_dir, args.error)
+        if args.output_dir is None:
+            output_path = f'/home/noukhovm/emergent-selfish/results/{args.experiment_name}'
+        else:
+            output_path = args.output_dir
+        generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error)
     elif args.command == 'check':
         print(metric_over_runs(args.dir, args.error))

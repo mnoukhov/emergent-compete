@@ -2,6 +2,7 @@ include 'configs/base.gin'
 
 train.Sender = @DiceLOLASender
 train.Recver = @ExactLOLARecver
+train.vocab_size = 128
 
 DiceLOLASender.order = 0
 DiceLOLASender.recver_lola_lr = 5e-3

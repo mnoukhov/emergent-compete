@@ -1,7 +1,5 @@
-include 'configs/gauss-deter-recverlola.gin'
+include 'configs/gauss-recverlola.gin'
 
-train.num_epochs = 25
-train.batch_size = 64
 train.Loss = @CircleL1
 
 Gaussian.lr = reinforce-lr~loguniform(1e-4, 1e-2)
@@ -11,4 +9,4 @@ ExactLOLARecver.lr = recver-lr~loguniform(1e-4, 1e-2)
 ExactLOLARecver.hidden_size = recver-hid~uniform(16, 64, discrete=True)
 
 ExactLOLARecver.order = 0
-ExactLOLARecver.sender_lola_lr = sender-lola-lr~loguniform(1e-4, 1e-1)
+ExactLOLARecver.sender_lola_lr = sender-lola-lr~loguniform(1e-4, 1e-2)

@@ -1,0 +1,17 @@
+include 'configs/gausslola-recverlola.gin'
+
+train.num_epochs = 25
+train.batch_size = 64
+train.Loss = @CircleL1
+
+GaussianLOLASender.lr = gauss-lr~loguniform(1e-4, 1e-2)
+GaussianLOLASender.hidden_size = gauss-hid~uniform(16, 64, discrete=True)
+
+GaussianLOLASender.order = 0
+GaussianLOLASender.recver_lola_lr = recver-lola-lr~loguniform(1e-4, 1e-2)
+
+ExactLOLARecver.lr = recver-lr~loguniform(1e-4, 1e-2)
+ExactLOLARecver.hidden_size = recver-hid~uniform(16, 64, discrete=True)
+
+ExactLOLARecver.order = 0
+ExactLOLARecver.sender_lola_lr = sender-lola-lr~loguniform(1e-4, 1e-2)
