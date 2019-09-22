@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=def-bengioy
-#SBATCH --array=1-3
+#SBATCH --array=1-2
 #SBATCH --cpus-per-task=1
 #SBATCH --output=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.out
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.err
 #SBATCH --job-name=emergent-hyperparam
 #SBATCH --mem=4GB
-#SBATCH --time=8:59:00
+#SBATCH --time=11:59:00
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=mnoukhov@gmail.com
 
@@ -18,10 +18,10 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-bias=15
-experiment_name="cat-recverlola1-bias$bias"
-config="cat-recverlola-search.gin"
-params="Game.bias=$bias ExactLOLARecver.order=1"
+bias=0
+experiment_name="senderlola1-deter-bias$bias"
+config="senderlola-deter-search.gin"
+params="Game.bias=$bias DiceLOLASender.order=0 ExactLOLARecver.order=1"
 
 export PYTHONUNBUFFERED=1
 
