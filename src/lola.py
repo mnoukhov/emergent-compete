@@ -145,7 +145,6 @@ class GaussianLOLASender(Gaussian):
                          for param in recver.parameters()]
         sender_targets, recver_targets = batch
 
-        # TODO should you reset rng state at every step?
         torch.set_rng_state(start_rng_state)
 
         for step in range(self.order):

@@ -1,7 +1,5 @@
 include 'configs/gausslola-recverlola.gin'
 
-train.num_epochs = 25
-train.batch_size = 64
 train.Loss = @CircleL1
 
 GaussianLOLASender.lr = gauss-lr~loguniform(1e-4, 1e-2)
