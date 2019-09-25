@@ -1,0 +1,11 @@
+include 'configs/noise-deter.gin'
+
+train.Sender = @Noise
+train.Recver = @Deterministic
+train.Loss = @CircleL1
+
+Noise.lr = noise-lr~loguniform(1e-4, 1e-2)
+Noise.hidden_size = noise-hid~uniform(16, 64, discrete=True)
+
+Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
+Deterministic.hidden_size = deterministic-hid~uniform(16, 64, discrete=True)
