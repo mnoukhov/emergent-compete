@@ -18,9 +18,9 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-bias=6
-experiment_name="noiselola1-recverlola1-bias$bias"
-config="noiselola-recverlola-search.gin"
+bias=18
+experiment_name="cat-deter-bias$bias"
+config="cat-deter-search.gin"
 params="Game.bias=$bias"
 
 export PYTHONUNBUFFERED=1
