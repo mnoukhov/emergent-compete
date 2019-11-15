@@ -85,6 +85,7 @@ class Reinforce(Policy):
                  lr, ent_reg, **kwargs):
         super().__init__(**kwargs)
         self.input_size = input_size
+        self.output_size = output_size
         self.policy = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
@@ -285,4 +286,3 @@ class Noise(Policy):
             self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
 
         return loss, logs
-

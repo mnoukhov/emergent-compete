@@ -285,3 +285,39 @@ class DeterLOLASender(Deterministic):
         logs['loss'] = loss.item()
 
         return loss, logs
+
+
+@gin.configurable
+class MarginalSender(Reinforce):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, ent_reg=0.0)
+        self.lola = True
+
+    def loss(self, error, batch, recver, start_rng_state, loss_fn, grounded=False):
+        _, logs = super(Reinforce, self).loss(error)
+        sender = self
+
+        recver_params = [param.clone().detach().requires_grad_()
+                         for param in recver.parameters()]
+        sender_targets, recver_targets = batch
+        batch_size = sender_targets.size(0)
+
+        torch.set_rng_state(start_rng_state)
+
+        logits = sender.policy(sender_targets)
+        message_probs = nn.Softmax(dim=1)(logits)
+
+        possible_messages = torch.arange(self.output_size)
+        possible_actions, _, _ = recver.functional_forward(possible_messages, recver_params)
+
+        # make them both batch size x vocab size
+        sender_targets_matrix = sender_targets.expand((batch_size, self.output_size))
+        possible_actions_matrix = possible_actions.T.expand((batch_size, self.output_size))
+        possible_errors = loss_fn(possible_actions_matrix, sender_targets_matrix).squeeze()
+        error = message_probs * possible_errors
+        loss = error.sum(dim=1).mean()
+
+        logs['lola_error'] = error.mean().item()
+        logs['loss'] = loss.item()
+
+        return loss, logs
