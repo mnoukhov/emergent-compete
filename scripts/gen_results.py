@@ -39,8 +39,12 @@ def metric(seeds_dir, error_name='l1', verbose=False):
     else:
         raise Exception(f'error name {error_name} either not found or not valid')
 
-    total_error = sender[error_metric] + recver[error_metric]
-    return total_error.to_frame().groupby(epoch).mean()[-10:].mean()[error_metric]
+    last_10 = logs['epoch'] >= 20
+    if sender[last_10][error_metric].mean() < 9 and recver[last_10][error_metric].mean() < 9:
+        total_error = sender[error_metric] + recver[error_metric]
+        return total_error.to_frame().groupby(epoch).mean()[-10:].mean()[error_metric]
+    else:
+        return None
 
 
 def metric_over_runs(all_results_dir, error_name, verbose=True):
