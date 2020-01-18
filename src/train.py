@@ -32,8 +32,8 @@ def _div_dict(d, n):
 @gin.configurable
 def train(Sender, Recver, vocab_size, device,
           num_epochs, num_batches, batch_size,
-          grounded=False, savedir=None, loaddir=None,
-          random_seed=None, Loss=None):
+          savedir=None, loaddir=None, random_seed=None,
+          Loss=None):
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -103,19 +103,16 @@ def train(Sender, Recver, vocab_size, device,
 
             message, send_logprobs, send_entropy = sender(send_target)
             action, recv_logprobs, recv_entropy = recver(message.detach())
-            if grounded:
-                action = message.reshape(action.shape).float() + action
-
             send_error = loss_fn(action, send_target).squeeze()
             recv_error = loss_fn(action, recv_target).squeeze()
 
             if sender.lola is True:
-                send_loss, send_logs = sender.loss(send_error, batch, recver, start_rng_state, loss_fn, grounded)
+                send_loss, send_logs = sender.loss(send_error, batch, recver, start_rng_state, loss_fn)
             else:
                 send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
 
             if recver.lola is True:
-                recv_loss, recv_logs = recver.loss(recv_error, batch, sender, start_rng_state, loss_fn, grounded)
+                recv_loss, recv_logs = recver.loss(recv_error, batch, sender, start_rng_state, loss_fn)
             else:
                 recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
@@ -148,9 +145,6 @@ def train(Sender, Recver, vocab_size, device,
 
             message, send_logprobs, send_entropy = sender(send_target)
             action, recv_logprobs, recv_entropy = recver(message.detach())
-            if grounded:
-                action = message.reshape(action.shape).float() + action
-
             send_test_error = loss_fn(action, send_target).mean(dim=1)
             recv_test_error = loss_fn(action, recv_target).mean(dim=1)
             send_test_l1_error = l1_loss_fn(action, send_target).mean(dim=1)
