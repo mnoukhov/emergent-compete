@@ -18,7 +18,7 @@ pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 pip install -e .
 
-bias=18
+bias=15
 experiment_name="cat-deter-bias$bias"
 config="cat-deter-search.gin"
 params="Game.bias=$bias"
