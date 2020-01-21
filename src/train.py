@@ -165,6 +165,8 @@ def train(Sender, Recver, vocab_size, device,
             epoch_send_test_l2_error += send_test_l2_error.mean().item()
             epoch_recv_test_l2_error += recv_test_l2_error.mean().item()
 
+        epoch_send_logs['action'] = message
+        epoch_recv_logs['action'] = action
         epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
         epoch_recv_logs['test_error'] = epoch_recv_test_error / test_game.num_batches
         epoch_send_logs['test_l1_error'] = epoch_send_test_l1_error / test_game.num_batches
