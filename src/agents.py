@@ -48,6 +48,7 @@ class Deterministic(Policy):
 
     def __init__(self, input_size, output_size, hidden_size, lr, num_layers=1, **kwargs):
         super().__init__(**kwargs)
+        self.num_layers = num_layers
         if self.num_layers == 1:
             self.policy = RelaxedEmbedding(input_size, output_size)
         else:
@@ -92,6 +93,7 @@ class Reinforce(Policy):
         super().__init__(**kwargs)
         self.input_size = input_size
         self.output_size = output_size
+        self.num_layers = num_layers
         if self.num_layers == 1:
             self.policy = nn.Sequential(
                 nn.Linear(input_size, output_size),
@@ -126,7 +128,8 @@ class Reinforce(Policy):
 
     def functional_forward(self, x, weights):
         if self.num_layers == 1:
-            logits = F.linear(x, weights[0], weights[1])
+            out = F.linear(x, weights[0], weights[1])
+            logits = F.log_softmax(out, dim=1)
         else:
             out = F.linear(x, weights[0], weights[1])
             out = F.relu(out)
