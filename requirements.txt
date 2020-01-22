@@ -3,5 +3,5 @@
 -f /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
 -f /home/noukhovm/wheels
 torch>=1.2.0
-orion.core>=0.1.5
+orion>=0.1.7
 gin-config>=0.2.0
