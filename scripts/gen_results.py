@@ -129,10 +129,10 @@ def generate_results_folder(experiment_name, cluster_dir, output_path, error_nam
     output_path = Path(output_path)
     output_path.mkdir(exist_ok=True)
 
-    print('generating results csv')
+    print(f'generating results csv under {output_path}')
     best_run_paths = generate_results_csv(experiment_name, cluster_dir, output_path, error_name)
 
-    print('copying files')
+    print(f'copying files under {output_path}')
     for run_path in best_run_paths:
         dest = output_path / run_path.name
         if dest.exists():
