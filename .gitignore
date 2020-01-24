@@ -111,4 +111,3 @@ venv.bak/
 /runs
 job_error.txt
 job_output.txt
-scripts/*.ipynb
