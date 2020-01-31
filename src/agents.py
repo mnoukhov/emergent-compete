@@ -150,6 +150,10 @@ class Reinforce(Policy):
 
         return sample, logprobs, entropy
 
+    def forward_dist(self, state):
+        logits = self.policy(state)
+        return Categorical(logits=logits)
+
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
 
@@ -191,7 +195,7 @@ class Gaussian(Policy):
     def forward(self, state):
         # logits = self.policy(state)
         mean = self.mean(state)
-        var = self.var(state) + 1e-10
+        var = self.var(state) + 1e-7
         dist = Normal(mean, var)
         entropy = dist.entropy()
 
@@ -224,6 +228,12 @@ class Gaussian(Policy):
         logprobs = dist.log_prob(sample)
 
         return sample, logprobs, entropy
+
+    def forward_dist(self, state):
+        mean = F.linear(x, weights[0], weights[1])
+        var = F.relu(F.linear(x, weights[2], weights[3])) + 1e-7
+
+        return Normal(mean, var)
 
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
