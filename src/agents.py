@@ -46,11 +46,17 @@ class Policy(nn.Module):
 class Deterministic(Policy):
     retain_graph = True
 
-    def __init__(self, input_size, output_size, hidden_size, lr, num_layers=1, **kwargs):
+    def __init__(self, input_size, output_size, hidden_size,
+                 lr, num_layers=3, **kwargs):
         super().__init__(**kwargs)
         self.num_layers = num_layers
         if self.num_layers == 1:
             self.policy = RelaxedEmbedding(input_size, output_size)
+        elif self.num_layers == 2:
+            self.policy = nn.Sequential(
+                RelaxedEmbedding(input_size, hidden_size)
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size))
         else:
             self.policy = nn.Sequential(
                 RelaxedEmbedding(input_size, hidden_size),
@@ -68,6 +74,10 @@ class Deterministic(Policy):
     def functional_forward(self, x, weights):
         if self.num_layers == 1:
             out = relaxedembedding(x, weights[0])
+        elif self.num_layers == 2:
+            out = relaxedembedding(x, weights[0])
+            out = F.relu(out)
+            out = F.linear(out, weights[1], weights[2])
         else:
             out = relaxedembedding(x, weights[0])
             out = F.relu(out)
@@ -89,7 +99,7 @@ class Deterministic(Policy):
 @gin.configurable
 class Reinforce(Policy):
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, num_layers=1, **kwargs):
+                 lr, ent_reg, num_layers=3, **kwargs):
         super().__init__(**kwargs)
         self.input_size = input_size
         self.output_size = output_size
@@ -97,6 +107,12 @@ class Reinforce(Policy):
         if self.num_layers == 1:
             self.policy = nn.Sequential(
                 nn.Linear(input_size, output_size),
+                nn.LogSoftmax(dim=1))
+        elif self.num_layers == 2:
+            self.policy = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size),
                 nn.LogSoftmax(dim=1))
         else:
             self.policy = nn.Sequential(
@@ -129,6 +145,11 @@ class Reinforce(Policy):
     def functional_forward(self, x, weights):
         if self.num_layers == 1:
             out = F.linear(x, weights[0], weights[1])
+            logits = F.log_softmax(out, dim=1)
+        elif self.num_layers == 2:
+            out = F.linear(x, weights[0], weights[1])
+            out = F.relu(out)
+            out = F.linear(out, weights[2], weights[3])
             logits = F.log_softmax(out, dim=1)
         else:
             out = F.linear(x, weights[0], weights[1])
