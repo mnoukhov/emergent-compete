@@ -147,8 +147,6 @@ def train(Sender, Recver, vocab_size, device,
             for b, batch in enumerate(test_game):
                 send_target, recv_target = batch
 
-                # message, send_logprobs, send_entropy = sender(send_target)
-                # action, recv_logprobs, recv_entropy = recver(message.detach())
                 # if grounded:
                     # action = message.reshape(action.shape).float() + action
 
@@ -182,6 +180,8 @@ def train(Sender, Recver, vocab_size, device,
                 epoch_send_test_l2_error += torch.einsum('bs,sb -> b', dist.probs, send_test_l2_error).mean().item()
                 epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', dist.probs, recv_test_l2_error).mean().item()
 
+        message, _, _ = sender(torch.tensor([[0.]]))
+        action, _, _ = recver(message.detach())
         epoch_send_logs['action'] = message[0].item()
         epoch_recv_logs['action'] = action[0].item()
         epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
