@@ -47,14 +47,14 @@ class Deterministic(Policy):
     retain_graph = True
 
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, num_layers=3, **kwargs):
+                 lr, num_layers=2, **kwargs):
         super().__init__(**kwargs)
         self.num_layers = num_layers
         if self.num_layers == 1:
             self.policy = RelaxedEmbedding(input_size, output_size)
         elif self.num_layers == 2:
             self.policy = nn.Sequential(
-                RelaxedEmbedding(input_size, hidden_size)
+                RelaxedEmbedding(input_size, hidden_size),
                 nn.ReLU(),
                 nn.Linear(hidden_size, output_size))
         else:
@@ -99,7 +99,7 @@ class Deterministic(Policy):
 @gin.configurable
 class Reinforce(Policy):
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, num_layers=3, **kwargs):
+                 lr, ent_reg, num_layers=2, **kwargs):
         super().__init__(**kwargs)
         self.input_size = input_size
         self.output_size = output_size
