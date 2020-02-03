@@ -30,10 +30,10 @@ def _div_dict(d, n):
 
 
 @gin.configurable
-def train(Sender, Recver, vocab_size, device,
+def train(Sender, Recver, vocab_size,
           num_epochs, num_batches, batch_size,
           grounded=False, savedir=None, loaddir=None,
-          random_seed=None, Loss=None):
+          random_seed=None, Loss=None, device='cpu'):
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -70,6 +70,7 @@ def train(Sender, Recver, vocab_size, device,
 
         with open(f'{savedir}/config.gin', 'w') as f:
             f.write(gin.operative_config_str())
+            f.write(f"train.device = '{device}'")
 
         logfile = open(f'{savedir}/logs.json', 'w')
         logfile.write('[ \n')
