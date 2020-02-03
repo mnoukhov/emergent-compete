@@ -42,7 +42,8 @@ def rerun(results_dir):
             seed_output_path.mkdir(exist_ok=True)
             seed_error = train(savedir=seed_output_path,
                                random_seed=random_seed,
-                               num_epochs=30)
+                               num_epochs=30,
+                               last_epochs_metric=30)
             bias_error += seed_error
 
         errors.append(bias_error / 5)

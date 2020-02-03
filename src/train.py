@@ -33,7 +33,8 @@ def _div_dict(d, n):
 def train(Sender, Recver, vocab_size,
           num_epochs, num_batches, batch_size,
           grounded=False, savedir=None, loaddir=None,
-          random_seed=None, Loss=None, device='cpu'):
+          random_seed=None, Loss=None, device='cpu',
+          last_epochs_metric=10):
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -215,7 +216,7 @@ def train(Sender, Recver, vocab_size,
                     'recver': recver.state_dict(),
                     }, f'{savedir}/models.save')
 
-    last_errors_avg = sum(test_l1_errors[-10:]) / 10
+    last_errors_avg = sum(test_l1_errors[-last_epochs_metric:]) / last_epochs_metric
     print(f'Game Over: {last_errors_avg:2.2f}')
 
     return last_errors_avg
