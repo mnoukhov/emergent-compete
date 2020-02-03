@@ -38,7 +38,7 @@ def train(Sender, Recver, vocab_size,
     if random_seed is not None:
         random.seed(random_seed)
         torch.manual_seed(random_seed)
-        if device.type == 'cuda':
+        if device == 'cuda' or (isinstance(device, torch.device) and device.type == 'cuda'):
             torch.cuda.manual_seed(random_seed)
 
     game = Game(num_batches=num_batches,
