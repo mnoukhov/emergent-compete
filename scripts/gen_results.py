@@ -139,6 +139,9 @@ def generate_results_folder(experiment_name, cluster_dir, output_path, error_nam
             shutil.rmtree(str(dest))
         shutil.copytree(str(run_path), str(dest))
 
+    print(f'copying config from {run_path} under {output_path}')
+    shutil.copy(str(run_path / '0' / 'config.gin'), str(output_path))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
