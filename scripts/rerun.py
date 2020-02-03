@@ -50,9 +50,9 @@ def rerun(results_dir):
 
     with open(output_path / 'results.csv', 'w') as f:
         writer = csv.writer(f)
-        writer.writerow(['bias', 'error', 'id'])
+        writer.writerow(['bias', 'error', 'id', 'l1'])
         for bias, error, id_ in sorted(zip(biases, errors, ids)):
-            writer.writerow([bias, error, id_])
+            writer.writerow([bias, error, id_, error])
 
 
 if __name__ == '__main__':
