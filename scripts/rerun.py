@@ -28,7 +28,7 @@ def rerun(results_dir):
 
         bias_index = bias_path.name.find('bias') + 4
         under_index = bias_path.name.find('_')
-        bias = bias_path.name[bias_index:under_index]
+        bias = int(bias_path.name[bias_index:under_index])
         id_ = bias_path.name[under_index+1:]
 
         biases.append(bias)
