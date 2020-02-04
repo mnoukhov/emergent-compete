@@ -8,7 +8,7 @@ import torch
 
 from src.train import train
 
-def rerun(results_dir):
+def rerun(results_dir, num_epochs=100):
     results_path = Path(results_dir)
     output_path = Path(f'{results_dir}-extended')
     output_path.mkdir(exist_ok=True)
@@ -42,7 +42,7 @@ def rerun(results_dir):
             seed_output_path.mkdir(exist_ok=True)
             seed_error = train(savedir=seed_output_path,
                                random_seed=random_seed,
-                               num_epochs=30,
+                               num_epochs=num_epochs,
                                last_epochs_metric=30)
             bias_error += seed_error
 
@@ -58,7 +58,8 @@ def rerun(results_dir):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('results_dir')
+    parser.add_argument('num_epochs', type=int, default=100)
     args = parser.parse_args()
 
-    rerun(args.results_dir)
+    rerun(args.results_dir, args.num_epochs)
 

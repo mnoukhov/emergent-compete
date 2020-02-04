@@ -20,4 +20,4 @@ export PYTHONUNBUFFERED=1
 
 EXP_NAME="senderlola2-recverlola2"
 
-python scripts/rerun.py $EXP_NAME
+python scripts/rerun.py $HOME/emergent-selfish/results/$EXP_NAME
