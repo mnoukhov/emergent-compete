@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=def-bengioy
-#SBATCH --output=/home/noukhovm/scratch/slurm-logs/rerun.%A.%a.out
-#SBATCH --error=/home/noukhovm/scratch/slurm-logs/rerun.%A.%a.err
-#SBATCH --job-name=rerun
+#SBATCH --output=/home/noukhovm/scratch/slurm-logs/rerun_one.%A.%a.out
+#SBATCH --error=/home/noukhovm/scratch/slurm-logs/rerun_one.%A.%a.err
+#SBATCH --job-name=rerun_one
 #SBATCH --mem=4GB
 #SBATCH --time=2:59:00
 #SBATCH --mail-type=FAIL
@@ -18,6 +18,7 @@ pip install -e .
 
 export PYTHONUNBUFFERED=1
 
-EXP_NAME="cat-deter"
+BIAS=12
+EXP_NAME="senderlola1-recverlola1"
 
-python scripts/rerun.py $HOME/emergent-selfish/results/$EXP_NAME
+python scripts/rerun.py $HOME/emergent-selfish/results/$EXP_NAME --bias $BIAS

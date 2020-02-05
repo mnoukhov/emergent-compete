@@ -12,7 +12,6 @@ def rerun(results_dir, num_epochs=100):
     results_path = Path(results_dir)
     output_path = Path(f'{results_dir}-extended')
     output_path.mkdir(exist_ok=True)
-
     biases = []
     errors = []
     ids = []
@@ -55,11 +54,48 @@ def rerun(results_dir, num_epochs=100):
             writer.writerow([bias, error, id_, error])
 
 
+def rerun_one(results_dir, bias, num_epochs=100):
+    results_path = Path(results_dir)
+    output_path = Path(f'{results_dir}-extended')
+    output_path.mkdir(exist_ok=True)
+
+    bias_path = next(results_path.glob(f'*bias{bias}*'))
+    config_path = next(bias_path.glob('**/*.gin'))
+
+    gin.config.register_finalize_hook(
+        lambda config: config[('', 'src.train.train')].update({'device': torch.device(config[('', 'src.train.train')].get('device','cpu'))}))
+    gin.parse_config_file(str(config_path))
+
+    bias_index = bias_path.name.find('bias') + 4
+    under_index = bias_path.name.find('_')
+    bias = int(bias_path.name[bias_index:under_index])
+    id_ = bias_path.name[under_index+1:]
+
+    bias_error = 0
+    bias_output_path = output_path / bias_path.name
+    bias_output_path.mkdir(exist_ok=True)
+    for random_seed in range(5):
+        seed_output_path =  bias_output_path / f'{random_seed}'
+        seed_output_path.mkdir(exist_ok=True)
+        seed_error = train(savedir=seed_output_path,
+                           random_seed=random_seed,
+                           num_epochs=num_epochs,
+                           last_epochs_metric=30)
+        bias_error += seed_error
+
+    print(f'bias {bias}')
+    print(f'id {id_}')
+    print(f'bias error {bias_error / 5}')
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('results_dir')
-    parser.add_argument('num_epochs', type=int, default=100)
+    parser.add_argument('--num_epochs', type=int, default=100)
+    parser.add_argument('--bias', type=int, default=None)
     args = parser.parse_args()
 
-    rerun(args.results_dir, args.num_epochs)
+    if args.bias is None:
+        rerun(args.results_dir, args.num_epochs)
+    else:
+        rerun_one(args.results_dir, args.bias, args.num_epochs)
 
