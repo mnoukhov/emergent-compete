@@ -6,8 +6,8 @@ import shutil
 import pandas as pd
 
 
-def metric(seeds_dir, error_name='l1', verbose=False):
-    # average of last 10 epochs
+def metric(seeds_dir, error_name='l1', num_last_epochs=10, verbose=False):
+    # average of last $num_last_epochs epochs
     results_path = Path(seeds_dir)
 
     if verbose:
@@ -39,16 +39,16 @@ def metric(seeds_dir, error_name='l1', verbose=False):
     else:
         raise Exception(f'error name {error_name} either not found or not valid')
 
-    last_10 = logs['epoch'] >= 20
-    if ((error_name == 'l1' and sender[last_10][error_metric].mean() < 9 and recver[last_10][error_metric].mean() < 9)
-            or error_name == 'l2'):
-        total_error = sender[error_metric] + recver[error_metric]
-        return total_error.to_frame().groupby(epoch).mean()[-10:].mean()[error_metric]
-    else:
-        return None
+    # last_10 = logs['epoch'] >= 20
+    # if ((error_name == 'l1' and sender[last_10][error_metric].mean() < 9 and recver[last_10][error_metric].mean() < 9)
+            # or error_name == 'l2'):
+    total_error = sender[error_metric] + recver[error_metric]
+    return total_error.to_frame().groupby(epoch).mean()[-num_last_epochs:].mean()[error_metric]
+    # else:
+        # return None
 
 
-def metric_over_runs(all_results_dir, error_name, verbose=True):
+def metric_over_runs(all_results_dir, error_name, num_last_epochs, verbose=True):
     all_results_path = Path(all_results_dir)
 
     empty =  []
@@ -60,9 +60,9 @@ def metric_over_runs(all_results_dir, error_name, verbose=True):
     for result_dir in all_results_path.iterdir():
         if result_dir.is_dir():
             try:
-                score = metric(result_dir, error_name, verbose)
+                score = metric(result_dir, error_name, num_last_epochs, verbose)
                 if error_name != 'l1':
-                    l1 = metric(result_dir, 'l1', verbose)
+                    l1 = metric(result_dir, 'l1', num_last_epochs, verbose)
                 else:
                     l1 = score
             except ValueError:
@@ -86,7 +86,7 @@ def metric_over_runs(all_results_dir, error_name, verbose=True):
     return min_score, min_index, min_l1
 
 
-def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_name='l1'):
+def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_name='l1', num_last_epochs=10):
     output_path = Path(output_dir)
     cluster_results_path = Path(cluster_dir)
     if not cluster_results_path.exists():
@@ -103,7 +103,7 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
         bias_index = exp_full_name.find('bias') + 4
         name_index = len(exp_full_name) + 1
         print(f'running on {exp_full_name}')
-        error, run_name, l1 = metric_over_runs(exp_results_path, error_name=error_name, verbose=False)
+        error, run_name, l1 = metric_over_runs(exp_results_path, error_name=error_name, num_last_epochs=num_last_epochs, verbose=False)
         if error is None:
             print(f'no results in {exp_full_name}')
         else:
@@ -125,12 +125,12 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
     return run_paths
 
 
-def generate_results_folder(experiment_name, cluster_dir, output_path, error_name):
+def generate_results_folder(experiment_name, cluster_dir, output_path, error_name, num_last_epochs):
     output_path = Path(output_path)
     output_path.mkdir(exist_ok=True)
 
     print(f'generating results csv under {output_path}')
-    best_run_paths = generate_results_csv(experiment_name, cluster_dir, output_path, error_name)
+    best_run_paths = generate_results_csv(experiment_name, cluster_dir, output_path, error_name, num_last_epochs)
 
     print(f'copying files under {output_path}')
     for run_path in best_run_paths:
@@ -154,6 +154,7 @@ if __name__ == '__main__':
     gen_parser.add_argument('--results-dir', default='/scratch/noukhovm/emergent-selfish')
     gen_parser.add_argument('--output-dir', default=None)
     gen_parser.add_argument('--error', default='l1')
+    gen_parser.add_argument('--num-last-epochs', type=int, default=10)
 
     # get error metric over hyperparams
     check_parser = subparsers.add_parser('check')
@@ -168,6 +169,6 @@ if __name__ == '__main__':
             output_path = f'/home/noukhovm/emergent-selfish/results/{args.experiment_name}'
         else:
             output_path = args.output_dir
-        generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error)
+        generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error, args.num_last_epochs)
     elif args.command == 'check':
         print(metric_over_runs(args.dir, args.error))
