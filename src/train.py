@@ -159,8 +159,19 @@ def train(Sender, Recver, vocab_size,
 
                     # get sender's distribution of messages for the inputs
                     dist = sender.forward_dist(send_target)
+                    probs = dist.probs
                 else:
-                    raise Exception('TODO: continuous messages')
+                    dist = sender.forward_dist(send_target)
+                    min_mean = min(dist.mean)
+                    max_mean = max(dist.mean)
+                    max_std = max(dist.stddev)
+
+                    vocab_size = 1000
+                    all_messages = torch.linspace((min_mean - max_std).item(),
+                                                  (max_mean + max_std).item(), vocab_size)
+                    probs = dist.cdf(all_messages)
+                    probs[:,1:] -= probs[:,:-1].clone()
+                    action, recv_logprobs, recv_entropy = recver(all_messages.unsqueeze(1))
 
 
                 # duplicate target for each possible message-action
@@ -175,12 +186,12 @@ def train(Sender, Recver, vocab_size,
                 send_test_l2_error = l2_loss_fn(action, send_targets.T)
                 recv_test_l2_error = l2_loss_fn(action, recv_targets.T)
 
-                epoch_send_test_error += torch.einsum('bs,sb -> b', dist.probs, send_test_error).mean().item()
-                epoch_recv_test_error += torch.einsum('bs,sb -> b', dist.probs, recv_test_error).mean().item()
-                epoch_send_test_l1_error += torch.einsum('bs,sb -> b', dist.probs, send_test_l1_error).mean().item()
-                epoch_recv_test_l1_error += torch.einsum('bs,sb -> b', dist.probs, recv_test_l1_error).mean().item()
-                epoch_send_test_l2_error += torch.einsum('bs,sb -> b', dist.probs, send_test_l2_error).mean().item()
-                epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', dist.probs, recv_test_l2_error).mean().item()
+                epoch_send_test_error += torch.einsum('bs,sb -> b', probs, send_test_error).mean().item()
+                epoch_recv_test_error += torch.einsum('bs,sb -> b', probs, recv_test_error).mean().item()
+                epoch_send_test_l1_error += torch.einsum('bs,sb -> b', probs, send_test_l1_error).mean().item()
+                epoch_recv_test_l1_error += torch.einsum('bs,sb -> b', probs, recv_test_l1_error).mean().item()
+                epoch_send_test_l2_error += torch.einsum('bs,sb -> b', probs, send_test_l2_error).mean().item()
+                epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', probs, recv_test_l2_error).mean().item()
 
         message, _, _ = sender(torch.tensor([[0.]]))
         action, _, _ = recver(message.detach())
