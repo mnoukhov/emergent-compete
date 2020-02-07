@@ -161,6 +161,7 @@ if __name__ == '__main__':
     check_parser.set_defaults(command='check')
     check_parser.add_argument('dir')
     check_parser.add_argument('--error', default='l1')
+    check_parser.add_argument('--num-last-epochs', type=int, default=10)
 
     args = parser.parse_args()
 
@@ -171,4 +172,4 @@ if __name__ == '__main__':
             output_path = args.output_dir
         generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error, args.num_last_epochs)
     elif args.command == 'check':
-        print(metric_over_runs(args.dir, args.error))
+        print(metric_over_runs(args.dir, args.error, args.num_last_epochs))
