@@ -8,12 +8,14 @@ Game.bias = 0
 # ==============================================================================
 Deterministic.hidden_size = 56
 Deterministic.lr = 0.003389523122503849
+Deterministic.num_layers = 2
 
 # Parameters for Reinforce:
 # ==============================================================================
 Reinforce.ent_reg = 0.6970216100053589
 Reinforce.hidden_size = 38
 Reinforce.lr = 0.004989109802984877
+Reinforce.num_layers = 2
 
 # Parameters for train:
 # ==============================================================================
