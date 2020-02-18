@@ -46,14 +46,24 @@ class Policy(nn.Module):
 class Deterministic(Policy):
     retain_graph = True
 
-    def __init__(self, input_size, output_size, hidden_size, lr, **kwargs):
+    def __init__(self, input_size, output_size, hidden_size,
+                 lr, num_layers=2, **kwargs):
         super().__init__(**kwargs)
-        self.policy = nn.Sequential(
-            RelaxedEmbedding(input_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, output_size))
+        self.num_layers = num_layers
+        if self.num_layers == 1:
+            self.policy = RelaxedEmbedding(input_size, output_size)
+        elif self.num_layers == 2:
+            self.policy = nn.Sequential(
+                RelaxedEmbedding(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size))
+        else:
+            self.policy = nn.Sequential(
+                RelaxedEmbedding(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size))
         self.lr = lr
 
     def forward(self, state):
@@ -62,11 +72,18 @@ class Deterministic(Policy):
         return action, torch.tensor(0.), torch.tensor(0.)
 
     def functional_forward(self, x, weights):
-        out = relaxedembedding(x, weights[0])
-        out = F.relu(out)
-        out = F.linear(out, weights[1], weights[2])
-        out = F.relu(out)
-        out = F.linear(out, weights[3], weights[4])
+        if self.num_layers == 1:
+            out = relaxedembedding(x, weights[0])
+        elif self.num_layers == 2:
+            out = relaxedembedding(x, weights[0])
+            out = F.relu(out)
+            out = F.linear(out, weights[1], weights[2])
+        else:
+            out = relaxedembedding(x, weights[0])
+            out = F.relu(out)
+            out = F.linear(out, weights[1], weights[2])
+            out = F.relu(out)
+            out = F.linear(out, weights[3], weights[4])
 
         return out, torch.tensor(0.), torch.tensor(0.)
 
@@ -82,16 +99,29 @@ class Deterministic(Policy):
 @gin.configurable
 class Reinforce(Policy):
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, **kwargs):
+                 lr, ent_reg, num_layers=2, **kwargs):
         super().__init__(**kwargs)
         self.input_size = input_size
-        self.policy = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, output_size),
-            nn.LogSoftmax(dim=1))
+        self.output_size = output_size
+        self.num_layers = num_layers
+        if self.num_layers == 1:
+            self.policy = nn.Sequential(
+                nn.Linear(input_size, output_size),
+                nn.LogSoftmax(dim=1))
+        elif self.num_layers == 2:
+            self.policy = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size),
+                nn.LogSoftmax(dim=1))
+        else:
+            self.policy = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size),
+                nn.LogSoftmax(dim=1))
 
         self.ent_reg = ent_reg
         self.lr = lr
@@ -113,12 +143,21 @@ class Reinforce(Policy):
         return sample, logprobs, entropy
 
     def functional_forward(self, x, weights):
-        out = F.linear(x, weights[0], weights[1])
-        out = F.relu(out)
-        out = F.linear(out, weights[2], weights[3])
-        out = F.relu(out)
-        out = F.linear(out, weights[4], weights[5])
-        logits = F.log_softmax(out, dim=1)
+        if self.num_layers == 1:
+            out = F.linear(x, weights[0], weights[1])
+            logits = F.log_softmax(out, dim=1)
+        elif self.num_layers == 2:
+            out = F.linear(x, weights[0], weights[1])
+            out = F.relu(out)
+            out = F.linear(out, weights[2], weights[3])
+            logits = F.log_softmax(out, dim=1)
+        else:
+            out = F.linear(x, weights[0], weights[1])
+            out = F.relu(out)
+            out = F.linear(out, weights[2], weights[3])
+            out = F.relu(out)
+            out = F.linear(out, weights[4], weights[5])
+            logits = F.log_softmax(out, dim=1)
 
         dist = Categorical(logits=logits)
         entropy = dist.entropy()
@@ -131,6 +170,10 @@ class Reinforce(Policy):
         logprobs = dist.log_prob(sample)
 
         return sample, logprobs, entropy
+
+    def forward_dist(self, state):
+        logits = self.policy(state)
+        return Categorical(logits=logits)
 
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
@@ -154,14 +197,15 @@ class Gaussian(Policy):
 
     def __init__(self, input_size, output_size, hidden_size, lr, **kwargs):
         super().__init__(**kwargs)
-        self.policy = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU())
-        self.mean = nn.Linear(hidden_size, output_size)
+        # self.policy = nn.Sequential(
+            # nn.Linear(input_size, hidden_size),
+            # nn.ReLU(),
+            # nn.Linear(hidden_size, hidden_size),
+            # nn.ReLU())
+        # self.policy = nn.Linear(input_size, hidden_size)
+        self.mean = nn.Linear(input_size, output_size)
         self.var = nn.Sequential(
-            nn.Linear(hidden_size, output_size),
+            nn.Linear(input_size, output_size),
             nn.ReLU())
 
         self.ent_reg = 0
@@ -170,9 +214,9 @@ class Gaussian(Policy):
         self.n_update = 0.
 
     def forward(self, state):
-        logits = self.policy(state)
-        mean = self.mean(logits)
-        var = self.var(logits) + 1e-10
+        # logits = self.policy(state)
+        mean = self.mean(state)
+        var = self.var(state) + 1e-7
         dist = Normal(mean, var)
         entropy = dist.entropy()
 
@@ -186,13 +230,13 @@ class Gaussian(Policy):
         return sample, logprobs, entropy
 
     def functional_forward(self, x, weights):
-        out = F.linear(x, weights[0], weights[1])
-        out = F.relu(out)
-        out = F.linear(out, weights[2], weights[3])
-        logits = F.relu(out)
+        # out = F.linear(x, weights[0], weights[1])
+        # out = F.relu(out)
+        # out = F.linear(out, weights[2], weights[3])
+        # logits = F.relu(out)
 
-        mean = F.linear(logits, weights[4], weights[5])
-        var = F.relu(F.linear(logits, weights[6], weights[7])) + 1e-7
+        mean = F.linear(x, weights[0], weights[1])
+        var = F.relu(F.linear(x, weights[2], weights[3])) + 1e-7
 
         dist = Normal(mean, var)
         entropy = dist.entropy()
@@ -205,6 +249,12 @@ class Gaussian(Policy):
         logprobs = dist.log_prob(sample)
 
         return sample, logprobs, entropy
+
+    def forward_dist(self, state):
+        mean = F.linear(x, weights[0], weights[1])
+        var = F.relu(F.linear(x, weights[2], weights[3])) + 1e-7
+
+        return Normal(mean, var)
 
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
@@ -220,4 +270,3 @@ class Gaussian(Policy):
             self.baseline += (error.detach().mean().item() - self.baseline) / (self.n_update)
 
         return loss, logs
-

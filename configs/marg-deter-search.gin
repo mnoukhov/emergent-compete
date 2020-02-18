@@ -1,0 +1,12 @@
+include 'configs/marg-deter.gin'
+
+train.vocab_size = vocabsize~choices(64,128,256)
+train.Sender = @MarginalSender
+train.Recver = @Deterministic
+train.Loss = @CircleL1
+
+MarginalSender.lr = reinforce-lr~loguniform(1e-4, 1e-2)
+MarginalSender.hidden_size = reinforce-hid~uniform(16, 64, discrete=True)
+
+Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
+Deterministic.hidden_size = deterministic-hid~uniform(16, 64, discrete=True)

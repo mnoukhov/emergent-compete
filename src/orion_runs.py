@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     # change device to torch.device
     gin.config.register_finalize_hook(
-        lambda config: config[('', 'src.train.train')].update({'device': torch.device(config[('', 'src.train.train')]['device'])}))
+        lambda config: config[('', 'src.train.train')].update({'device': torch.device(config[('', 'src.train.train')].get('device','cpu'))}))
 
     gin.parse_config_files_and_bindings(args.config, args.gin_param)
     print(gin.operative_config_str())
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     errors = []
     for random_seed in range(5):
         if args.savedir:
-            os.makedirs(args.savedir, exist_ok=True)
+            os.makedirs(args.savedir, exist_ok=true)
 
             seed_savedir = f'{args.savedir}/{random_seed}'
         else:

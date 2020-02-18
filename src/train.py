@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from src.agents import mode
+from src.agents import mode, Reinforce
 from src.game import Game, CircleL1, CircleL2, CosineLoss
 import src.lola
 
@@ -30,15 +30,16 @@ def _div_dict(d, n):
 
 
 @gin.configurable
-def train(Sender, Recver, vocab_size, device,
+def train(Sender, Recver, vocab_size,
           num_epochs, num_batches, batch_size,
-          savedir=None, loaddir=None, random_seed=None,
-          Loss=None):
+          grounded=False, savedir=None, loaddir=None,
+          random_seed=None, Loss=None, device='cpu',
+          last_epochs_metric=10):
 
     if random_seed is not None:
         random.seed(random_seed)
         torch.manual_seed(random_seed)
-        if device.type == 'cuda':
+        if device == 'cuda' or (isinstance(device, torch.device) and device.type == 'cuda'):
             torch.cuda.manual_seed(random_seed)
 
     game = Game(num_batches=num_batches,
@@ -70,6 +71,7 @@ def train(Sender, Recver, vocab_size, device,
 
         with open(f'{savedir}/config.gin', 'w') as f:
             f.write(gin.operative_config_str())
+            f.write(f"train.device = '{device}'")
 
         logfile = open(f'{savedir}/logs.json', 'w')
         logfile.write('[ \n')
@@ -140,25 +142,47 @@ def train(Sender, Recver, vocab_size, device,
         epoch_recv_test_l1_error = 0
         epoch_send_test_l2_error = 0
         epoch_recv_test_l2_error = 0
-        for b, batch in enumerate(test_game):
-            send_target, recv_target = batch
+        with torch.no_grad():
+            for b, batch in enumerate(test_game):
+                send_target, recv_target = batch
 
-            message, send_logprobs, send_entropy = sender(send_target)
-            action, recv_logprobs, recv_entropy = recver(message.detach())
-            send_test_error = loss_fn(action, send_target).mean(dim=1)
-            recv_test_error = loss_fn(action, recv_target).mean(dim=1)
-            send_test_l1_error = l1_loss_fn(action, send_target).mean(dim=1)
-            recv_test_l1_error = l1_loss_fn(action, recv_target).mean(dim=1)
-            send_test_l2_error = l2_loss_fn(action, send_target).mean(dim=1)
-            recv_test_l2_error = l2_loss_fn(action, recv_target).mean(dim=1)
+                # if grounded:
+                    # action = message.reshape(action.shape).float() + action
 
-            epoch_send_test_error += send_test_error.mean().item()
-            epoch_recv_test_error += recv_test_error.mean().item()
-            epoch_send_test_l1_error += send_test_l1_error.mean().item()
-            epoch_recv_test_l1_error += recv_test_l1_error.mean().item()
-            epoch_send_test_l2_error += send_test_l2_error.mean().item()
-            epoch_recv_test_l2_error += recv_test_l2_error.mean().item()
+                if isinstance(sender, Reinforce):
+                    # get recver's action for any given message
+                    all_messages = torch.arange(vocab_size)
+                    action, recv_logprobs, recv_entropy = recver(all_messages)
 
+                    # get sender's distribution of messages for the inputs
+                    dist = sender.forward_dist(send_target)
+                else:
+                    raise Exception('TODO: continuous messages')
+
+
+                # duplicate target for each possible message-action
+                send_targets = send_target.repeat((1, vocab_size))
+                recv_targets = recv_target.repeat((1, vocab_size))
+
+                # get errors for each of those message-actions
+                send_test_error = loss_fn(action, send_targets.T)
+                recv_test_error = loss_fn(action, recv_targets.T)
+                send_test_l1_error = l1_loss_fn(action, send_targets.T)
+                recv_test_l1_error = l1_loss_fn(action, recv_targets.T)
+                send_test_l2_error = l2_loss_fn(action, send_targets.T)
+                recv_test_l2_error = l2_loss_fn(action, recv_targets.T)
+
+                epoch_send_test_error += torch.einsum('bs,sb -> b', dist.probs, send_test_error).mean().item()
+                epoch_recv_test_error += torch.einsum('bs,sb -> b', dist.probs, recv_test_error).mean().item()
+                epoch_send_test_l1_error += torch.einsum('bs,sb -> b', dist.probs, send_test_l1_error).mean().item()
+                epoch_recv_test_l1_error += torch.einsum('bs,sb -> b', dist.probs, recv_test_l1_error).mean().item()
+                epoch_send_test_l2_error += torch.einsum('bs,sb -> b', dist.probs, send_test_l2_error).mean().item()
+                epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', dist.probs, recv_test_l2_error).mean().item()
+
+        message, _, _ = sender(torch.tensor([[0.]]))
+        action, _, _ = recver(message.detach())
+        epoch_send_logs['action'] = message[0].item()
+        epoch_recv_logs['action'] = action[0].item()
         epoch_send_logs['test_error'] = epoch_send_test_error / test_game.num_batches
         epoch_recv_logs['test_error'] = epoch_recv_test_error / test_game.num_batches
         epoch_send_logs['test_l1_error'] = epoch_send_test_l1_error / test_game.num_batches
@@ -182,7 +206,6 @@ def train(Sender, Recver, vocab_size, device,
                     'recver': epoch_recv_logs}
             json.dump(dump, logfile, indent=2)
 
-
     if logfile:
         logfile.write('\n]')
         logfile.close()
@@ -190,7 +213,7 @@ def train(Sender, Recver, vocab_size, device,
                     'recver': recver.state_dict(),
                     }, f'{savedir}/models.save')
 
-    last_errors_avg = sum(test_l1_errors[-10:]) / 10
+    last_errors_avg = sum(test_l1_errors[-last_epochs_metric:]) / last_epochs_metric
     print(f'Game Over: {last_errors_avg:2.2f}')
 
     return last_errors_avg

@@ -112,4 +112,6 @@ venv.bak/
 /full_logs
 job_error.txt
 job_output.txt
-scripts/*.ipynb
+
+# env
+env/
