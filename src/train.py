@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.optim import Adam
 
 from src.agents import mode, Reinforce
-from src.game import Game, CircleL1
+from src.game import Game, CircleL1, CircleL2
 
 
 def _add_dicts(a, b):
