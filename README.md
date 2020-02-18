@@ -1,5 +1,4 @@
-# Emergent Selfish Communication
-emerging communication with selfish agents
+# Emergent Communication under Competition
 
 ## Setup
 ### Repo
@@ -34,6 +33,8 @@ Train the models with `src/train.py`. We use `gin-config` so all configurations 
 `python src/train.py --gin_file /path/to/your/config --gin_param overriding_param=value`
 
 The best hyperparameters for any given experiment are given in the `.gin` config. See the `README.md` in `configs/` for more info.
+
+Training logs are saved in `logs.json` in the directory specified by `--gin_param train.savedir=$SAVEDIR`
 
 ### Hyperparameter Search
 
