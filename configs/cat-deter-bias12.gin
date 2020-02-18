@@ -1,0 +1,22 @@
+include 'configs/base.gin'
+
+# Parameters for Game:
+# ==============================================================================
+Game.bias = 12
+
+# Parameters for Deterministic:
+# ==============================================================================
+Deterministic.hidden_size = 54
+Deterministic.lr = 0.0015245579899418231
+
+# Parameters for Reinforce:
+# ==============================================================================
+Reinforce.ent_reg = 0.2942522682412556
+Reinforce.hidden_size = 49
+Reinforce.lr = 0.0004927128458832655
+
+# Parameters for train:
+# ==============================================================================
+train.Recver = @Deterministic
+train.Sender = @Reinforce
+train.vocab_size = 256

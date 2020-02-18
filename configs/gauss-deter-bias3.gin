@@ -1,0 +1,21 @@
+include 'configs/base.gin'
+
+# Parameters for Game:
+# ==============================================================================
+Game.bias = 3
+
+# Parameters for Deterministic:
+# ==============================================================================
+Deterministic.hidden_size = 42
+Deterministic.lr = 0.0033985596898455967
+
+# Parameters for Gaussian:
+# ==============================================================================
+Gaussian.hidden_size = 61
+Gaussian.lr = 0.002538880548998998
+
+# Parameters for train:
+# ==============================================================================
+train.Recver = @Deterministic
+train.Sender = @Gaussian
+train.vocab_size = 1
