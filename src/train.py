@@ -12,7 +12,6 @@ from torch.optim import Adam
 
 from src.agents import mode, Reinforce
 from src.game import Game, CircleL1, CircleL2, CosineLoss
-import src.lola
 
 
 def _add_dicts(a, b):
@@ -108,15 +107,9 @@ def train(Sender, Recver, vocab_size,
             send_error = loss_fn(action, send_target).squeeze()
             recv_error = loss_fn(action, recv_target).squeeze()
 
-            if sender.lola is True:
-                send_loss, send_logs = sender.loss(send_error, batch, recver, start_rng_state, loss_fn)
-            else:
-                send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
+            send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
 
-            if recver.lola is True:
-                recv_loss, recv_logs = recver.loss(recv_error, batch, sender, start_rng_state, loss_fn)
-            else:
-                recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
+            recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
             # sender must be updated before recver if using retain_graph
             send_opt.zero_grad()

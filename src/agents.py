@@ -27,7 +27,6 @@ class RelaxedEmbedding(nn.Embedding):
 
 class Policy(nn.Module):
     retain_graph = False
-    lola = False
 
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
