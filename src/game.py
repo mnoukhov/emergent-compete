@@ -78,16 +78,3 @@ class CircleL2(_Loss):
         counter_diff = (self.num_points - torch.abs(pred - target))**2
         min_diff = torch.min(diff, counter_diff)
         return min_diff
-
-
-@gin.configurable
-class CosineLoss(_Loss):
-    def __init__(self, num_points):
-        super().__init__(reduction=None)
-        self.num_points = num_points
-
-    def forward(self, output, target):
-        output_theta = output * 2 * math.pi / self.num_points
-        target_theta = target * 2 * math.pi / self.num_points
-        cosine = torch.cos(output_theta - target_theta)
-        return (1 - cosine)
