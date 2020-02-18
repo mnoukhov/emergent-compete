@@ -193,17 +193,26 @@ class Reinforce(Policy):
 class Gaussian(Policy):
     retain_graph = True
 
-    def __init__(self, input_size, output_size, hidden_size, lr, **kwargs):
+    def __init__(self, input_size, output_size, hidden_size,
+                 lr, num_layers=2, **kwargs):
         super().__init__(**kwargs)
-        # self.policy = nn.Sequential(
-            # nn.Linear(input_size, hidden_size),
-            # nn.ReLU(),
-            # nn.Linear(hidden_size, hidden_size),
-            # nn.ReLU())
-        # self.policy = nn.Linear(input_size, hidden_size)
-        self.mean = nn.Linear(input_size, output_size)
+        self.num_layers = num_layers
+        if self.num_layers == 2:
+            self.policy = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU())
+        elif self.num_layers == 3:
+            self.policy = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU())
+        else:
+            self.policy = None
+
+        self.mean = nn.Linear(hidden_size, output_size)
         self.var = nn.Sequential(
-            nn.Linear(input_size, output_size),
+            nn.Linear(hidden_size, output_size),
             nn.ReLU())
 
         self.ent_reg = 0
@@ -212,9 +221,9 @@ class Gaussian(Policy):
         self.n_update = 0.
 
     def forward(self, state):
-        # logits = self.policy(state)
-        mean = self.mean(state)
-        var = self.var(state) + 1e-7
+        logits = self.policy(state)
+        mean = self.mean(logits)
+        var = self.var(logits) + 1e-7
         dist = Normal(mean, var)
         entropy = dist.entropy()
 
@@ -228,13 +237,22 @@ class Gaussian(Policy):
         return sample, logprobs, entropy
 
     def functional_forward(self, x, weights):
-        # out = F.linear(x, weights[0], weights[1])
-        # out = F.relu(out)
-        # out = F.linear(out, weights[2], weights[3])
-        # logits = F.relu(out)
-
-        mean = F.linear(x, weights[0], weights[1])
-        var = F.relu(F.linear(x, weights[2], weights[3])) + 1e-7
+        if self.num_layers == 2:
+            out = F.linear(x, weights[0], weights[1])
+            out = F.relu(out)
+            mean = F.linear(out, weights[2], weights[3])
+            var = F.relu(F.linear(out, weights[4], weights[5])) + 1e-7
+        elif self.num_layers == 3:
+            out = F.linear(x, weights[0], weights[1])
+            out = F.relu(out)
+            out = F.linear(out, weights[2], weights[3])
+            out = F.relu(out)
+            mean = F.linear(out, weights[4], weights[5])
+            var = F.relu(F.linear(out, weights[6], weights[7])) + 1e-7
+        else:
+            out = x
+            mean = F.linear(out, weights[0], weights[1])
+            var = F.relu(F.linear(out, weights[2], weights[3])) + 1e-7
 
         dist = Normal(mean, var)
         entropy = dist.entropy()
@@ -249,9 +267,9 @@ class Gaussian(Policy):
         return sample, logprobs, entropy
 
     def forward_dist(self, state):
-        mean = F.linear(x, weights[0], weights[1])
-        var = F.relu(F.linear(x, weights[2], weights[3])) + 1e-7
-
+        logits = self.policy(state)
+        mean = self.mean(logits)
+        var = self.var(logits) + 1e-7
         return Normal(mean, var)
 
     def loss(self, error, logprobs, entropy):

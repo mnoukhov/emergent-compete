@@ -26,7 +26,7 @@ if __name__ == '__main__':
     errors = []
     for random_seed in range(5):
         if args.savedir:
-            os.makedirs(args.savedir, exist_ok=true)
+            os.makedirs(args.savedir, exist_ok=True)
 
             seed_savedir = f'{args.savedir}/{random_seed}'
         else:
