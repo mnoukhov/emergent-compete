@@ -7,11 +7,10 @@ import gin
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 from torch.optim import Adam
 
 from src.agents import mode, Reinforce
-from src.game import Game, CircleL1, CircleL2, CosineLoss
+from src.game import Game, CircleL1
 
 
 def _add_dicts(a, b):
@@ -31,7 +30,7 @@ def _div_dict(d, n):
 @gin.configurable
 def train(Sender, Recver, vocab_size,
           num_epochs, num_batches, batch_size,
-          grounded=False, savedir=None, loaddir=None,
+          savedir=None, loaddir=None,
           random_seed=None, Loss=None, device='cpu',
           last_epochs_metric=10):
 
@@ -138,9 +137,6 @@ def train(Sender, Recver, vocab_size,
         with torch.no_grad():
             for b, batch in enumerate(test_game):
                 send_target, recv_target = batch
-
-                # if grounded:
-                    # action = message.reshape(action.shape).float() + action
 
                 if isinstance(sender, Reinforce):
                     # get recver's action for any given message

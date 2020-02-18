@@ -4,7 +4,6 @@ import gin
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions.uniform import Uniform
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
