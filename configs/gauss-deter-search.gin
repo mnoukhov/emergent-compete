@@ -6,6 +6,8 @@ train.Loss = @CircleL1
 
 Gaussian.lr = gaussian-lr~loguniform(1e-4, 1e-2)
 Gaussian.hidden_size = gaussian-hid~uniform(16, 64, discrete=True)
+Gaussian.num_layers = 3
 
 Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
 Deterministic.hidden_size = deterministic-hid~uniform(16, 64, discrete=True)
+Deterministic.num_layers = 3
