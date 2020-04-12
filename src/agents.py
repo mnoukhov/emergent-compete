@@ -181,6 +181,7 @@ class Reinforce(Policy):
         loss = policy_loss + entropy_loss
 
         logs['loss'] = loss.item()
+        logs['entropy'] = entropy.mean().item()
 
         if self.training:
             self.n_update += 1.
@@ -194,7 +195,7 @@ class Gaussian(Policy):
     retain_graph = True
 
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, num_layers=2, **kwargs):
+                 lr, ent_reg, num_layers=2, **kwargs):
         super().__init__(**kwargs)
         self.num_layers = num_layers
         if self.num_layers == 2:
@@ -215,7 +216,7 @@ class Gaussian(Policy):
             nn.Linear(hidden_size, output_size),
             nn.ReLU())
 
-        self.ent_reg = 0
+        self.ent_reg = ent_reg
         self.lr = lr
         self.baseline = 0.
         self.n_update = 0.
@@ -275,11 +276,13 @@ class Gaussian(Policy):
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
 
-        grad_loss = error.mean()
+        # grad_loss = error.mean()
         policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
-        loss = grad_loss + policy_loss
+        entropy_loss = -entropy.mean() * self.ent_reg
+        loss = policy_loss + entropy_loss
 
         logs['loss'] = loss.item()
+        logs['entropy'] = entropy.mean().item()
 
         if self.training:
             self.n_update += 1.
