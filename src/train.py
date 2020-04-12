@@ -33,12 +33,14 @@ def train(Sender, Recver, vocab_size,
           savedir=None, loaddir=None,
           random_seed=None, Loss=None, device='cpu',
           last_epochs_metric=10):
-
     if random_seed is not None:
         random.seed(random_seed)
         torch.manual_seed(random_seed)
         if device == 'cuda' or (isinstance(device, torch.device) and device.type == 'cuda'):
             torch.cuda.manual_seed(random_seed)
+
+    # change device to torch.device
+    device = torch.device(device)
 
     game = Game(num_batches=num_batches,
                 batch_size=batch_size,
@@ -219,15 +221,15 @@ def train(Sender, Recver, vocab_size,
     return last_errors_avg
 
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gin_file', '-f', nargs='+')
     parser.add_argument('--gin_param', '-p', nargs='+')
     args = parser.parse_args()
 
-    # change device to torch.device
-    gin.config.register_finalize_hook(
-        lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
+    # gin.config.register_finalize_hook(
+        # lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
     gin.parse_config_files_and_bindings(args.gin_file, args.gin_param)
 
     print(gin.operative_config_str())
