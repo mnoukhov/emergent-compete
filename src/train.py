@@ -71,7 +71,6 @@ def train(Sender, Recver, vocab_size,
 
         with open(f'{savedir}/config.gin', 'w') as f:
             f.write(gin.operative_config_str())
-            f.write(f"train.device = '{device}'")
 
         logfile = open(f'{savedir}/logs.json', 'w')
         logfile.write('[ \n')
