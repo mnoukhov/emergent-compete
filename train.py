@@ -135,6 +135,7 @@ def train(Sender, Recver, vocab_size,
         epoch_recv_test_l1_error = 0
         epoch_send_test_l2_error = 0
         epoch_recv_test_l2_error = 0
+        epoch_send_test_entropy = 0
         with torch.no_grad():
             for b, batch in enumerate(test_game):
                 send_target, recv_target = batch
@@ -180,6 +181,8 @@ def train(Sender, Recver, vocab_size,
                 epoch_send_test_l2_error += torch.einsum('bs,sb -> b', probs, send_test_l2_error).mean().item()
                 epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', probs, recv_test_l2_error).mean().item()
 
+                epoch_send_test_entropy += dist.entropy().item()
+
         message, _, _ = sender(torch.tensor([[0.]]))
         action, _, _ = recver(message.detach())
         epoch_send_logs['action'] = message[0].item()
@@ -190,6 +193,8 @@ def train(Sender, Recver, vocab_size,
         epoch_recv_logs['test_l1_error'] = epoch_recv_test_l1_error / test_game.num_batches
         epoch_send_logs['test_l2_error'] = epoch_send_test_l2_error / test_game.num_batches
         epoch_recv_logs['test_l2_error'] = epoch_recv_test_l2_error / test_game.num_batches
+
+        epoch_send_logs['test_entropy'] = epoch_send_test_entropy / test_game.num_batches
 
         print(f'EPOCH {epoch}')
         print(f'ERROR {epoch_send_logs["error"]:2.2f} {epoch_recv_logs["error"]:2.2f}')

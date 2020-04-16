@@ -40,11 +40,14 @@ def metric(seeds_dir, error_name='l1', verbose=False):
         raise Exception(f'error name {error_name} either not found or not valid')
 
     last_10 = logs['epoch'] >= 20
-    if sender[last_10][error_metric].mean() < 9 and recver[last_10][error_metric].mean() < 9:
+    if error_name == 'l1' and (sender[last_10][error_metric].mean() > 9 and recver[last_10][error_metric].mean() > 9):
+        return None
+    # elif error_name == 'l2' and (sender[last_10][error_metric].mean() > 120 and recver[last_10][error_metric].mean() > 120):
+        # __import__('pdb').set_trace()
+        # return None
+    else:
         total_error = sender[error_metric] + recver[error_metric]
         return total_error.to_frame().groupby(epoch).mean()[-10:].mean()[error_metric]
-    else:
-        return None
 
 
 def metric_over_runs(all_results_dir, error_name, verbose=True):
@@ -147,7 +150,7 @@ if __name__ == '__main__':
     gen_parser = subparsers.add_parser('generate')
     gen_parser.set_defaults(command='generate')
     gen_parser.add_argument('--experiment-name', '--exp-name', required=True)
-    gen_parser.add_argument('--results-dir', default='/scratch/noukhovm/emergent-selfish')
+    gen_parser.add_argument('--results-dir', default='/scratch/')
     gen_parser.add_argument('--output-dir', default=None)
     gen_parser.add_argument('--error', default='l1')
 
@@ -161,7 +164,7 @@ if __name__ == '__main__':
 
     if args.command == 'generate':
         if args.output_dir is None:
-            output_path = f'/home/noukhovm/emergent-selfish/results/{args.experiment_name}'
+            output_path = f'/home/mnoukhov/emergent-compete/results/{args.experiment_name}'
         else:
             output_path = args.output_dir
         generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error)

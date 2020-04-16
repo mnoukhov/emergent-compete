@@ -8,7 +8,7 @@ REGISTRY_URL=volatile-images.borgy.elementai.net
 IMAGE_NAME=emergent
 IMAGE_NAME_AND_TAG=${REGISTRY_URL}/${USERNAME}/${IMAGE_NAME}:${IMAGE_VERSION}
 
-build-borgy-image:
+build:
 	@echo "Building image: ${IMAGE_NAME_AND_TAG}"
 	#echo "export PYPI_ACCESS_KEY=${PYPI_ACCESS_KEY}" >> .dockerenv
 	#echo "export PYPI_SECRET_KEY=${PYPI_SECRET_KEY}" >> .dockerenv
@@ -17,5 +17,5 @@ build-borgy-image:
 		#--secret id=env,src=.dockerenv
 	docker build -f Dockerfile --tag $(IMAGE_NAME_AND_TAG) .
 
-push-borgy-image:
+push:
 	docker push ${IMAGE_NAME_AND_TAG}

@@ -6,7 +6,7 @@ import gin
 from orion.client import report_results
 import torch
 
-from src.train import train
+from train import train
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
