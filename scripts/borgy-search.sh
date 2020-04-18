@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 
 NUM_PROCS=${1:-5}
-max_trials=$(( 100/ $NUM_PROCS ))
-
-
+max_trials=$(( 100 / $NUM_PROCS ))
 
 for BIAS in 0 3 6 9 12 15
 do
     config="cat-deter-search.gin"
     experiment_name="cat-deter-32768-bias$BIAS"
-    params="Game.bias=$BIAS train.vocab_size=32768 train.device='cuda'"
+    params="Game.bias=$BIAS train.vocab_size=32768 train.device=\'cuda\'"
 
     for process in $(seq 1 $NUM_PROCS)
     do
