@@ -181,7 +181,7 @@ def train(Sender, Recver, vocab_size,
                 epoch_send_test_l2_error += torch.einsum('bs,sb -> b', probs, send_test_l2_error).mean().item()
                 epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', probs, recv_test_l2_error).mean().item()
 
-                epoch_send_test_entropy += dist.entropy().item()
+                epoch_send_test_entropy += dist.entropy().mean().item()
 
         message, _, _ = sender(torch.tensor([[0.]]))
         action, _, _ = recver(message.detach())

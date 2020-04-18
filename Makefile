@@ -4,7 +4,7 @@ USERNAME := $(shell whoami 2> /dev/null)
 USERNAME := $(or $(USERNAME),$(USERNAME),nobody)
 
 IMAGE_VERSION=latest
-REGISTRY_URL=volatile-images.borgy.elementai.net
+REGISTRY_URL=images.borgy.elementai.net
 IMAGE_NAME=emergent
 IMAGE_NAME_AND_TAG=${REGISTRY_URL}/${USERNAME}/${IMAGE_NAME}:${IMAGE_VERSION}
 
