@@ -142,7 +142,7 @@ def train(Sender, Recver, vocab_size,
 
                 if isinstance(sender, Reinforce):
                     # get recver's action for any given message
-                    all_messages = torch.arange(vocab_size)
+                    all_messages = torch.arange(vocab_size).to(device)
                     action, recv_logprobs, recv_entropy = recver(all_messages)
 
                     # get sender's distribution of messages for the inputs
@@ -183,7 +183,7 @@ def train(Sender, Recver, vocab_size,
 
                 epoch_send_test_entropy += dist.entropy().mean().item()
 
-        message, _, _ = sender(torch.tensor([[0.]]))
+        message, _, _ = sender(torch.tensor([[0.]]).to(device))
         action, _, _ = recver(message.detach())
         epoch_send_logs['action'] = message[0].item()
         epoch_recv_logs['action'] = action[0].item()
