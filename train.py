@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch.optim import Adam
 
 from src.agents import mode, Reinforce
+from src.ddpg import DDPG
 from src.game import Game, CircleL1, CircleL2
 
 
@@ -62,7 +63,11 @@ def train(Sender, Recver, vocab_size,
                     output_size=1,
                     mode=mode.RECVER).to(device)
 
-    send_opt = Adam(sender.parameters(), lr=sender.lr)
+    if not isinstance(sender, DDPG):
+        send_opt = Adam(sender.parameters(), lr=sender.lr)
+    else:
+        pass
+
     recv_opt = Adam(recver.parameters(), lr=recver.lr)
 
     # Saving
@@ -108,13 +113,15 @@ def train(Sender, Recver, vocab_size,
             recv_error = loss_fn(action, recv_target).squeeze()
 
             send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
-
             recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
             # sender must be updated before recver if using retain_graph
-            send_opt.zero_grad()
-            send_loss.backward(retain_graph=sender.retain_graph)
-            send_opt.step()
+            if not isinstance(sender, DDPG):
+                send_opt.zero_grad()
+                send_loss.backward(retain_graph=sender.retain_graph)
+                send_opt.step()
+            else:
+                pass
 
             recv_opt.zero_grad()
             recv_loss.backward()
