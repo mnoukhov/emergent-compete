@@ -1,12 +1,13 @@
-experiment_name=$1
-config=$2
-params=${@:3}
+max_trials=$1
+experiment_name=$2
+config=$3
+params=${@:4}
 
 export PYTHONUNBUFFERED=1
 
 orion --debug hunt -n $experiment_name	\
     --working-dir /tmp/$experiment_name \
-    --max-trials 20 \
+    --max-trials $max_trials \
     orion_runs.py --config configs/$config \
     --savedir {trial.working_dir} \
     --gin_param $params
