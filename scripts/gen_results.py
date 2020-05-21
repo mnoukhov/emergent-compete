@@ -4,6 +4,9 @@ from pathlib import Path
 import shutil
 
 import pandas as pd
+import gin
+
+from src.agents import Gaussian
 
 
 def metric(seeds_dir, error_name='l1', verbose=False):
@@ -24,6 +27,10 @@ def metric(seeds_dir, error_name='l1', verbose=False):
                 raise ValueError(f'cant read json {path}: {e}')
 
     if not run_logs:
+        return None
+
+    gin.parse_config_file(results_path / '0/config.gin', skip_unknown=True)
+    if gin.config.query_parameter('Gaussian.dim') < 32:
         return None
 
     logs = pd.concat(run_logs, ignore_index=True)

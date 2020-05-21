@@ -108,6 +108,8 @@ def train(Sender, Recver, vocab_size,
             start_rng_state = torch.get_rng_state()
 
             message, send_logprobs, send_entropy = sender(send_target)
+            if not sender.retain_graph:
+                message = message.detach()
             action, recv_logprobs, recv_entropy = recver(message.detach())
             send_error = loss_fn(action, send_target).squeeze()
             recv_error = loss_fn(action, recv_target).squeeze()
@@ -155,19 +157,21 @@ def train(Sender, Recver, vocab_size,
                     # get sender's distribution of messages for the inputs
                     dist = sender.forward_dist(send_target)
                     probs = dist.probs
+                    epoch_send_test_entropy += dist.entropy().mean().item()
                 else:
-                    dist = sender.forward_dist(send_target)
-                    min_mean = min(dist.mean)
-                    max_mean = max(dist.mean)
-                    max_std = max(dist.stddev)
+                    means, stddev, cdf, entropy = sender.forward_dist(send_target)
+                    min_mean = min(means)
+                    max_mean = max(means)
+                    max_std = max(stddev)
 
                     vocab_size = 1000
                     all_messages = torch.linspace((min_mean - max_std).item(),
-                                                  (max_mean + max_std).item(), vocab_size)
-                    probs = dist.cdf(all_messages)
+                                                  (max_mean + max_std).item(), vocab_size).to(device)
+                    probs = cdf(all_messages)
                     probs[:,1:] -= probs[:,:-1].clone()
                     action, recv_logprobs, recv_entropy = recver(all_messages.unsqueeze(1))
 
+                    epoch_send_test_entropy += entropy.mean().item()
 
                 # duplicate target for each possible message-action
                 send_targets = send_target.repeat((1, vocab_size))
@@ -187,8 +191,6 @@ def train(Sender, Recver, vocab_size,
                 epoch_recv_test_l1_error += torch.einsum('bs,sb -> b', probs, recv_test_l1_error).mean().item()
                 epoch_send_test_l2_error += torch.einsum('bs,sb -> b', probs, send_test_l2_error).mean().item()
                 epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', probs, recv_test_l2_error).mean().item()
-
-                epoch_send_test_entropy += dist.entropy().mean().item()
 
         message, _, _ = sender(torch.tensor([[0.]]).to(device))
         action, _, _ = recver(message.detach())

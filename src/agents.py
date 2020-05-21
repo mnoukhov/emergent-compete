@@ -1,3 +1,4 @@
+import math
 from enum import Enum
 
 import gin
@@ -5,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
-from torch.distributions.normal import Normal
+from torch.distributions import Normal, MultivariateNormal
 
 mode = Enum('Player', 'SENDER RECVER')
 
@@ -192,10 +193,9 @@ class Reinforce(Policy):
 
 @gin.configurable
 class Gaussian(Policy):
-    retain_graph = True
-
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, num_layers=2, **kwargs):
+                 lr, ent_reg, dim=1, num_layers=2, min_var=1e-7,
+                 retain_graph=False, **kwargs):
         super().__init__(**kwargs)
         self.num_layers = num_layers
         if self.num_layers == 2:
@@ -211,21 +211,27 @@ class Gaussian(Policy):
         else:
             self.policy = None
 
-        self.mean = nn.Linear(hidden_size, output_size)
+        self.mean = nn.Linear(hidden_size, dim)
         self.var = nn.Sequential(
-            nn.Linear(hidden_size, output_size),
+            nn.Linear(hidden_size, dim),
             nn.ReLU())
 
         self.ent_reg = ent_reg
         self.lr = lr
+        self.dim = dim
+        self.min_var = min_var
+        self.retain_graph = retain_graph
         self.baseline = 0.
         self.n_update = 0.
 
     def forward(self, state):
+        device = state.device
         logits = self.policy(state)
         mean = self.mean(logits)
-        var = self.var(logits) + 1e-7
-        dist = Normal(mean, var)
+        var = self.var(logits) + self.min_var
+        covar = var.unsqueeze(1) * torch.eye(self.dim).to(device)
+
+        dist = MultivariateNormal(mean, covar)
         entropy = dist.entropy()
 
         if self.training:
@@ -235,7 +241,7 @@ class Gaussian(Policy):
 
         logprobs = dist.log_prob(sample)
 
-        return sample, logprobs, entropy
+        return sample.mean(dim=1, keepdim=True), logprobs, entropy
 
     def functional_forward(self, x, weights):
         if self.num_layers == 2:
@@ -270,16 +276,26 @@ class Gaussian(Policy):
     def forward_dist(self, state):
         logits = self.policy(state)
         mean = self.mean(logits)
-        var = self.var(logits) + 1e-7
-        return Normal(mean, var)
+        var = self.var(logits) + self.min_var
+
+        iso_mean = torch.mean(mean, dim=1, keepdim=True)
+        iso_var = torch.mean(var, dim=1, keepdim=True)
+        def cdf(value):
+            return 0.5 * (1 + torch.erf((value - iso_mean) * iso_var.reciprocal() / math.sqrt(2)))
+
+        entropy = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(iso_var)
+
+        return iso_mean, iso_var, cdf, entropy
 
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
 
-        # grad_loss = error.mean()
-        policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
-        entropy_loss = -entropy.mean() * self.ent_reg
-        loss = policy_loss + entropy_loss
+        if self.retain_graph:
+            loss = error.mean()
+        else:
+            policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
+            entropy_loss = -entropy.mean() * self.ent_reg
+            loss = policy_loss + entropy_loss
 
         logs['loss'] = loss.item()
         logs['entropy'] = entropy.mean().item()

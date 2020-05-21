@@ -10,26 +10,27 @@ from src.agents import Policy
 
 
 class ReplayBuffer(object):
-    def __init__(self, state_dim, action_dim, max_size=int(1e6)):
+    def __init__(self, state_dim, action_dim, max_size=int(1e6), device='cpu'):
         self.max_size = max_size
         self.ptr = 0
         self.size = 0
 
         self.state = np.zeros((max_size, state_dim))
         self.action = np.zeros((max_size, action_dim))
-        self.next_state = np.zeros((max_size, state_dim))
+        # self.next_state = np.zeros((max_size, state_dim))
         self.reward = np.zeros((max_size, 1))
-        self.not_done = np.zeros((max_size, 1))
+        # self.not_done = np.zeros((max_size, 1))
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
 
 
-    def add(self, state, action, next_state, reward, done):
+    def add(self, state, action, reward):
         self.state[self.ptr] = state
         self.action[self.ptr] = action
-        self.next_state[self.ptr] = next_state
+        # self.next_state[self.ptr] = next_state
         self.reward[self.ptr] = reward
-        self.not_done[self.ptr] = 1. - done
+        # self.not_done[self.ptr] = 1. - done
 
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
@@ -41,9 +42,7 @@ class ReplayBuffer(object):
         return (
             torch.FloatTensor(self.state[ind]).to(self.device),
             torch.FloatTensor(self.action[ind]).to(self.device),
-            torch.FloatTensor(self.next_state[ind]).to(self.device),
             torch.FloatTensor(self.reward[ind]).to(self.device),
-            torch.FloatTensor(self.not_done[ind]).to(self.device)
         )
 
 
@@ -81,36 +80,44 @@ class Critic(nn.Module):
 
 @gin.configurable
 class DDPG(Policy):
-    def __init__(self, input_size, output_size, lr, max_action=36, discount=0.99, tau=0.005, **kwargs):
+    def __init__(self, input_size, output_size, lr, max_action=36, discount=0.99, tau=0.005,
+                 start_timesteps=1e3, **kwargs):
         super().__init__(kwargs)
 
         state_dim = input_size
         action_dim = output_size
 
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
-        self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters())
 
         self.critic = Critic(state_dim, action_dim).to(device)
-        self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
         self.discount = discount
         self.tau = tau
         self.lr = lr
 
+        self.replay_buffer = ReplayBuffer()
+        self.start_timesteps = start_timesteps
+        self.timestep = 0
+        self.max_action = max_action
 
     def forward(self, state):
         return self.actor(state), torch.tensor(0.), torch.tensor(0.)
 
 
-    def train(self, replay_buffer, batch_size=100):
+    def train(self, state, action, reward, batch_size=100):
+        self.replay_buffer.add(state, action, reward)
+
+        # if self.timestep < self.start_timesteps:
+            # return torch.
+
         # Sample replay buffer
-        state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
+        state, action, reward, not_done = replay_buffer.sample(batch_size)
 
         # Compute the target Q value
-        target_Q = self.critic_target(next_state, self.actor_target(next_state))
-        target_Q = reward + (not_done * self.discount * target_Q).detach()
+        # target_Q = self.citic_target(next_state, self.actor_target(next_state))
+        target_Q = reward
 
         # Get current Q estimate
         current_Q = self.critic(state, action)
@@ -132,9 +139,8 @@ class DDPG(Policy):
         self.actor_optimizer.step()
 
         # Update the frozen target models
-        for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-            target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+        # for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+            # target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
-        for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-            target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
-
+        # for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
+            # target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
