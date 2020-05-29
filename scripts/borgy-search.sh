@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 
 NUM_PROCS=${1:-5}
-max_trials=$(( 75 / $NUM_PROCS ))
+max_trials=$(( 100 / $NUM_PROCS ))
 
-for BIAS in 0 3 6 9 12 15
+for BIAS in 15
 do
     config="gauss-deter-search.gin"
-    experiment_name="gauss-deter-dim256gpu-bias$BIAS"
-    params="Game.bias=$BIAS Gaussian.min_var=1e-2 train.device=\'cuda\'"
+    experiment_name="gauss-deter-dim1redo-bias$BIAS"
+    params="Game.bias=$BIAS Gaussian.dim=1"
 
     for process in $(seq 1 $NUM_PROCS)
     do
         borgy submit \
             --name $experiment_name \
             --mem 4 \
-            --gpu 1 \
+            --gpu 0 \
             -e HOME=$HOME \
             -i images.borgy.elementai.net/mnoukhov/emergent:latest \
             -v $HOME/emergent-compete:/workspace/emergent-compete:ro \

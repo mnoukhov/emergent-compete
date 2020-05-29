@@ -229,9 +229,12 @@ class Gaussian(Policy):
         logits = self.policy(state)
         mean = self.mean(logits)
         var = self.var(logits) + self.min_var
-        covar = var.unsqueeze(1) * torch.eye(self.dim).to(device)
+        if self.dim > 1:
+            covar = var.unsqueeze(1) * torch.eye(self.dim).to(device)
+            dist = MultivariateNormal(mean, covar)
+        else:
+            dist = Normal(mean, var)
 
-        dist = MultivariateNormal(mean, covar)
         entropy = dist.entropy()
 
         if self.training:
@@ -241,7 +244,10 @@ class Gaussian(Policy):
 
         logprobs = dist.log_prob(sample)
 
-        return sample.mean(dim=1, keepdim=True), logprobs, entropy
+        if self.dim > 1:
+            sample = sample.mean(dim=1, keepdim=True)
+
+        return sample, logprobs, entropy
 
     def functional_forward(self, x, weights):
         if self.num_layers == 2:

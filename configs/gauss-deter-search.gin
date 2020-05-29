@@ -8,8 +8,7 @@ Gaussian.lr = gaussian-lr~loguniform(1e-4, 1e-2)
 Gaussian.hidden_size = gaussian-hid~uniform(16, 64, discrete=True)
 Gaussian.num_layers = 3
 Gaussian.ent_reg = gaussian-ent-reg~loguniform(1e-4, 1)
-Gaussian.min_var = gaussian-min-var~loguniform(1e-2, 1e2)
-Gaussian.dim = gaussian-dim~choices(64, 128, 256)
+Gaussian.min_var = 1e-2
 
 Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
 Deterministic.hidden_size = deterministic-hid~uniform(16, 64, discrete=True)

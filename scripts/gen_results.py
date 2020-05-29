@@ -13,13 +13,13 @@ def metric(seeds_dir, error_name='l1', verbose=False):
     # average of last 10 epochs
     results_path = Path(seeds_dir)
 
-    if verbose:
-        print(results_path.name)
+    # if verbose:
+        # print(results_path.name)
 
     run_logs = []
     for path in results_path.glob('*/logs.json'):
-        if verbose:
-            print(path)
+        # if verbose:
+            # print(path)
         with open(path, 'r') as logfile:
             try:
                 run_logs.append(pd.read_json(logfile))
@@ -30,8 +30,8 @@ def metric(seeds_dir, error_name='l1', verbose=False):
         return None
 
     gin.parse_config_file(results_path / '0/config.gin', skip_unknown=True)
-    if gin.config.query_parameter('Gaussian.dim') < 32:
-        return None
+    # if gin.config.query_parameter('Gaussian.dim') < 32:
+        # return None
 
     logs = pd.concat(run_logs, ignore_index=True)
     epoch = logs['epoch']
@@ -54,7 +54,11 @@ def metric(seeds_dir, error_name='l1', verbose=False):
         # return None
     else:
         total_error = sender[error_metric] + recver[error_metric]
-        return total_error.to_frame().groupby(epoch).mean()[-10:].mean()[error_metric]
+        if total_error.isnull().values.any():
+            return None
+        else:
+            score = total_error.to_frame().groupby(epoch).mean()[-10:].mean()[error_metric]
+            return score
 
 
 def metric_over_runs(all_results_dir, error_name, verbose=True):
@@ -95,7 +99,7 @@ def metric_over_runs(all_results_dir, error_name, verbose=True):
     return min_score, min_index, min_l1
 
 
-def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_name='l1'):
+def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_name='l1', verbose=False):
     output_path = Path(output_dir)
     cluster_results_path = Path(cluster_dir)
     if not cluster_results_path.exists():
@@ -112,7 +116,7 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
         bias_index = exp_full_name.find('bias') + 4
         name_index = len(exp_full_name) + 1
         print(f'running on {exp_full_name}')
-        error, run_name, l1 = metric_over_runs(exp_results_path, error_name=error_name, verbose=False)
+        error, run_name, l1 = metric_over_runs(exp_results_path, error_name=error_name, verbose=verbose)
         if error is None:
             print(f'no results in {exp_full_name}')
         else:
@@ -134,12 +138,12 @@ def generate_results_csv(experiment_name, cluster_dir, output_dir='.', error_nam
     return run_paths
 
 
-def generate_results_folder(experiment_name, cluster_dir, output_path, error_name):
+def generate_results_folder(experiment_name, cluster_dir, output_path, error_name, verbose=False):
     output_path = Path(output_path)
     output_path.mkdir(exist_ok=True)
 
     print('generating results csv')
-    best_run_paths = generate_results_csv(experiment_name, cluster_dir, output_path, error_name)
+    best_run_paths = generate_results_csv(experiment_name, cluster_dir, output_path, error_name, verbose)
 
     print('copying files')
     for run_path in best_run_paths:
@@ -160,6 +164,7 @@ if __name__ == '__main__':
     gen_parser.add_argument('--results-dir', default='/scratch/')
     gen_parser.add_argument('--output-dir', default=None)
     gen_parser.add_argument('--error', default='l1')
+    gen_parser.add_argument('--verbose', action='store_true')
 
     # get error metric over hyperparams
     check_parser = subparsers.add_parser('check')
@@ -174,6 +179,6 @@ if __name__ == '__main__':
             output_path = f'/home/mnoukhov/emergent-compete/results/{args.experiment_name}'
         else:
             output_path = args.output_dir
-        generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error)
+        generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error, args.verbose)
     elif args.command == 'check':
         print(metric_over_runs(args.dir, args.error))
