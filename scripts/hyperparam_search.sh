@@ -1,5 +1,6 @@
 #!/bin/bash
-#SBATCH --account=def-bengioy
+#SBATCH --account=rrg-bengioy-ad
+#SBATCH --array=1-5
 #SBATCH --cpus-per-task=1
 #SBATCH --output=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.out
 #SBATCH --error=/home/noukhovm/scratch/slurm-logs/hyperparam-search.%A.%a.err
@@ -14,10 +15,11 @@ source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 
-max_trials=$num_trials
-experiment_name=$name
-config=$config
-params=$params
+max_trials=20
+bias=15
+experiment_name="gauss-deter-dim1-bias$bias"
+config="gauss-deter-search.gin"
+params="Gaussian.dim=1 Game.bias=$bias"
 
 export PYTHONUNBUFFERED=1
 
