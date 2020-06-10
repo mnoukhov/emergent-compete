@@ -6,7 +6,7 @@ import shutil
 import pandas as pd
 import gin
 
-from src.agents import Gaussian
+# from src.agents import Gaussian
 
 
 def metric(seeds_dir, error_name='l1', verbose=False):
