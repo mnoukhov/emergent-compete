@@ -26,8 +26,6 @@ class RelaxedEmbedding(nn.Embedding):
 
 
 class Policy(nn.Module):
-    retain_graph = False
-
     def __init__(self, mode, *args, **kwargs):
         super().__init__()
         self.mode = mode
@@ -43,8 +41,6 @@ class Policy(nn.Module):
 
 @gin.configurable
 class Deterministic(Policy):
-    retain_graph = True
-
     def __init__(self, input_size, output_size, hidden_size,
                  lr, num_layers=2, **kwargs):
         super().__init__(**kwargs)
@@ -149,8 +145,7 @@ class Reinforce(Policy):
 @gin.configurable
 class Gaussian(Policy):
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, dim=1, num_layers=3, min_var=1e-7,
-                 retain_graph=False, **kwargs):
+                 lr, ent_reg, dim=1, num_layers=3, min_var=1e-7, **kwargs):
         super().__init__(**kwargs)
         self.num_layers = num_layers
         if self.num_layers == 2:
@@ -175,7 +170,6 @@ class Gaussian(Policy):
         self.lr = lr
         self.dim = dim
         self.min_var = min_var
-        self.retain_graph = retain_graph
         self.baseline = 0.
         self.n_update = 0.
 
@@ -215,12 +209,9 @@ class Gaussian(Policy):
     def loss(self, error, logprobs, entropy):
         _, logs = super().loss(error)
 
-        if self.retain_graph:
-            loss = error.mean()
-        else:
-            policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
-            entropy_loss = -entropy.mean() * self.ent_reg
-            loss = policy_loss + entropy_loss
+        policy_loss = ((error.detach() - self.baseline) * logprobs).mean()
+        entropy_loss = -entropy.mean() * self.ent_reg
+        loss = policy_loss + entropy_loss
 
         logs['loss'] = loss.item()
         logs['entropy'] = entropy.mean().item()

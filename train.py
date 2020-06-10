@@ -100,11 +100,8 @@ def train(Sender, Recver, vocab_size,
         for b, batch in enumerate(game):
             send_target, recv_target = batch
 
-            start_rng_state = torch.get_rng_state()
-
             message, send_logprobs, send_entropy = sender(send_target)
-            if not sender.retain_graph:
-                message = message.detach()
+            message = message.detach()
             action, recv_logprobs, recv_entropy = recver(message.detach())
             send_error = loss_fn(action, send_target).squeeze()
             recv_error = loss_fn(action, recv_target).squeeze()
@@ -112,9 +109,8 @@ def train(Sender, Recver, vocab_size,
             send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
             recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
-            # sender must be updated before recver if using retain_graph
             send_opt.zero_grad()
-            send_loss.backward(retain_graph=sender.retain_graph)
+            send_loss.backward()
             send_opt.step()
 
             recv_opt.zero_grad()
