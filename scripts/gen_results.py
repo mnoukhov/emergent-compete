@@ -6,8 +6,6 @@ import shutil
 import pandas as pd
 import gin
 
-# from src.agents import Gaussian
-
 
 def metric(seeds_dir, error_name='l1', verbose=False):
     # average of last 10 epochs
@@ -175,10 +173,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.command == 'generate':
-        if args.output_dir is None:
-            output_path = f'/home/mnoukhov/emergent-compete/results/{args.experiment_name}'
-        else:
-            output_path = args.output_dir
-        generate_results_folder(args.experiment_name, args.results_dir, output_path, args.error, args.verbose)
+        generate_results_folder(args.experiment_name,
+                                args.results_dir,
+                                args.output_dir,
+                                args.error,
+                                args.verbose)
     elif args.command == 'check':
         print(metric_over_runs(args.dir, args.error))
