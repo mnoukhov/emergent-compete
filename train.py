@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch.optim import Adam
 
 from src.agents import mode, Reinforce
+from src.ddpg import DDPG
 from src.game import Game, CircleL1, CircleL2
 
 
@@ -33,12 +34,14 @@ def train(Sender, Recver, vocab_size,
           savedir=None, loaddir=None,
           random_seed=None, Loss=None, device='cpu',
           last_epochs_metric=10):
-
     if random_seed is not None:
         random.seed(random_seed)
         torch.manual_seed(random_seed)
         if device == 'cuda' or (isinstance(device, torch.device) and device.type == 'cuda'):
             torch.cuda.manual_seed(random_seed)
+
+    # change device to torch.device
+    device = torch.device(device)
 
     game = Game(num_batches=num_batches,
                 batch_size=batch_size,
@@ -60,7 +63,11 @@ def train(Sender, Recver, vocab_size,
                     output_size=1,
                     mode=mode.RECVER).to(device)
 
-    send_opt = Adam(sender.parameters(), lr=sender.lr)
+    if not isinstance(sender, DDPG):
+        send_opt = Adam(sender.parameters(), lr=sender.lr)
+    else:
+        pass
+
     recv_opt = Adam(recver.parameters(), lr=recver.lr)
 
     # Saving
@@ -69,7 +76,6 @@ def train(Sender, Recver, vocab_size,
 
         with open(f'{savedir}/config.gin', 'w') as f:
             f.write(gin.operative_config_str())
-            f.write(f"train.device = '{device}'")
 
         logfile = open(f'{savedir}/logs.json', 'w')
         logfile.write('[ \n')
@@ -102,18 +108,22 @@ def train(Sender, Recver, vocab_size,
             start_rng_state = torch.get_rng_state()
 
             message, send_logprobs, send_entropy = sender(send_target)
+            if not sender.retain_graph:
+                message = message.detach()
             action, recv_logprobs, recv_entropy = recver(message.detach())
             send_error = loss_fn(action, send_target).squeeze()
             recv_error = loss_fn(action, recv_target).squeeze()
 
             send_loss, send_logs = sender.loss(send_error, send_logprobs, send_entropy)
-
             recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
             # sender must be updated before recver if using retain_graph
-            send_opt.zero_grad()
-            send_loss.backward(retain_graph=sender.retain_graph)
-            send_opt.step()
+            if not isinstance(sender, DDPG):
+                send_opt.zero_grad()
+                send_loss.backward(retain_graph=sender.retain_graph)
+                send_opt.step()
+            else:
+                pass
 
             recv_opt.zero_grad()
             recv_loss.backward()
@@ -134,31 +144,34 @@ def train(Sender, Recver, vocab_size,
         epoch_recv_test_l1_error = 0
         epoch_send_test_l2_error = 0
         epoch_recv_test_l2_error = 0
+        epoch_send_test_entropy = 0
         with torch.no_grad():
             for b, batch in enumerate(test_game):
                 send_target, recv_target = batch
 
                 if isinstance(sender, Reinforce):
                     # get recver's action for any given message
-                    all_messages = torch.arange(vocab_size)
+                    all_messages = torch.arange(vocab_size).to(device)
                     action, recv_logprobs, recv_entropy = recver(all_messages)
 
                     # get sender's distribution of messages for the inputs
                     dist = sender.forward_dist(send_target)
                     probs = dist.probs
+                    epoch_send_test_entropy += dist.entropy().mean().item()
                 else:
-                    dist = sender.forward_dist(send_target)
-                    min_mean = min(dist.mean)
-                    max_mean = max(dist.mean)
-                    max_std = max(dist.stddev)
+                    means, stddev, cdf, entropy = sender.forward_dist(send_target)
+                    min_mean = min(means)
+                    max_mean = max(means)
+                    max_std = max(stddev)
 
                     vocab_size = 1000
                     all_messages = torch.linspace((min_mean - max_std).item(),
-                                                  (max_mean + max_std).item(), vocab_size)
-                    probs = dist.cdf(all_messages)
+                                                  (max_mean + max_std).item(), vocab_size).to(device)
+                    probs = cdf(all_messages)
                     probs[:,1:] -= probs[:,:-1].clone()
                     action, recv_logprobs, recv_entropy = recver(all_messages.unsqueeze(1))
 
+                    epoch_send_test_entropy += entropy.mean().item()
 
                 # duplicate target for each possible message-action
                 send_targets = send_target.repeat((1, vocab_size))
@@ -179,7 +192,7 @@ def train(Sender, Recver, vocab_size,
                 epoch_send_test_l2_error += torch.einsum('bs,sb -> b', probs, send_test_l2_error).mean().item()
                 epoch_recv_test_l2_error += torch.einsum('bs,sb -> b', probs, recv_test_l2_error).mean().item()
 
-        message, _, _ = sender(torch.tensor([[0.]]))
+        message, _, _ = sender(torch.tensor([[0.]]).to(device))
         action, _, _ = recver(message.detach())
         epoch_send_logs['action'] = message[0].item()
         epoch_recv_logs['action'] = action[0].item()
@@ -189,6 +202,8 @@ def train(Sender, Recver, vocab_size,
         epoch_recv_logs['test_l1_error'] = epoch_recv_test_l1_error / test_game.num_batches
         epoch_send_logs['test_l2_error'] = epoch_send_test_l2_error / test_game.num_batches
         epoch_recv_logs['test_l2_error'] = epoch_recv_test_l2_error / test_game.num_batches
+
+        epoch_send_logs['test_entropy'] = epoch_send_test_entropy / test_game.num_batches
 
         print(f'EPOCH {epoch}')
         print(f'ERROR {epoch_send_logs["error"]:2.2f} {epoch_recv_logs["error"]:2.2f}')
@@ -219,15 +234,15 @@ def train(Sender, Recver, vocab_size,
     return last_errors_avg
 
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gin_file', '-f', nargs='+')
     parser.add_argument('--gin_param', '-p', nargs='+')
     args = parser.parse_args()
 
-    # change device to torch.device
-    gin.config.register_finalize_hook(
-        lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
+    # gin.config.register_finalize_hook(
+        # lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
     gin.parse_config_files_and_bindings(args.gin_file, args.gin_param)
 
     print(gin.operative_config_str())

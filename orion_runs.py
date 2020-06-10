@@ -6,7 +6,7 @@ import gin
 from orion.client import report_results
 import torch
 
-from src.train import train
+from train import train
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -17,8 +17,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # change device to torch.device
-    gin.config.register_finalize_hook(
-        lambda config: config[('', 'src.train.train')].update({'device': torch.device(config[('', 'src.train.train')].get('device','cpu'))}))
+    # gin.config.register_finalize_hook(
+        # lambda config: config[('', 'src.train.train')].update({'device': torch.device(config[('', 'src.train.train')].get('device','cpu'))}))
 
     gin.parse_config_files_and_bindings(args.config, args.gin_param)
     print(gin.operative_config_str())

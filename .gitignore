@@ -105,6 +105,7 @@ venv.bak/
 
 # vim swap
 *.swp
+*.swo
 
 # results
 /results
@@ -115,3 +116,4 @@ job_output.txt
 
 # env
 env/
+Pipfile*
