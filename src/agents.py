@@ -70,22 +70,6 @@ class Deterministic(Policy):
 
         return action, torch.tensor(0.), torch.tensor(0.)
 
-    def functional_forward(self, x, weights):
-        if self.num_layers == 1:
-            out = relaxedembedding(x, weights[0])
-        elif self.num_layers == 2:
-            out = relaxedembedding(x, weights[0])
-            out = F.relu(out)
-            out = F.linear(out, weights[1], weights[2])
-        else:
-            out = relaxedembedding(x, weights[0])
-            out = F.relu(out)
-            out = F.linear(out, weights[1], weights[2])
-            out = F.relu(out)
-            out = F.linear(out, weights[3], weights[4])
-
-        return out, torch.tensor(0.), torch.tensor(0.)
-
     def loss(self, error, *args):
         _, logs = super().loss(error)
         loss = error.mean()
@@ -141,35 +125,6 @@ class Reinforce(Policy):
 
         return sample, logprobs, entropy
 
-    def functional_forward(self, x, weights):
-        if self.num_layers == 1:
-            out = F.linear(x, weights[0], weights[1])
-            logits = F.log_softmax(out, dim=1)
-        elif self.num_layers == 2:
-            out = F.linear(x, weights[0], weights[1])
-            out = F.relu(out)
-            out = F.linear(out, weights[2], weights[3])
-            logits = F.log_softmax(out, dim=1)
-        else:
-            out = F.linear(x, weights[0], weights[1])
-            out = F.relu(out)
-            out = F.linear(out, weights[2], weights[3])
-            out = F.relu(out)
-            out = F.linear(out, weights[4], weights[5])
-            logits = F.log_softmax(out, dim=1)
-
-        dist = Categorical(logits=logits)
-        entropy = dist.entropy()
-
-        if self.training:
-            sample = dist.sample()
-        else:
-            sample = logits.argmax(dim=1)
-
-        logprobs = dist.log_prob(sample)
-
-        return sample, logprobs, entropy
-
     def forward_dist(self, state):
         logits = self.policy(state)
         return Categorical(logits=logits)
@@ -194,7 +149,7 @@ class Reinforce(Policy):
 @gin.configurable
 class Gaussian(Policy):
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, dim=1, num_layers=2, min_var=1e-7,
+                 lr, ent_reg, dim=1, num_layers=3, min_var=1e-7,
                  retain_graph=False, **kwargs):
         super().__init__(**kwargs)
         self.num_layers = num_layers
@@ -209,7 +164,7 @@ class Gaussian(Policy):
                 nn.Linear(hidden_size, hidden_size),
                 nn.ReLU())
         else:
-            self.policy = None
+            raise NotImplementedError('only support 2 or 3-layer nets')
 
         self.mean = nn.Linear(hidden_size, dim)
         self.var = nn.Sequential(
@@ -229,45 +184,9 @@ class Gaussian(Policy):
         logits = self.policy(state)
         mean = self.mean(logits)
         var = self.var(logits) + self.min_var
-        if self.dim > 1:
-            covar = var.unsqueeze(1) * torch.eye(self.dim).to(device)
-            dist = MultivariateNormal(mean, covar)
-        else:
-            dist = Normal(mean, var)
-
-        entropy = dist.entropy()
-
-        if self.training:
-            sample = dist.rsample()
-        else:
-            sample = mean
-
-        logprobs = dist.log_prob(sample)
-
-        if self.dim > 1:
-            sample = sample.mean(dim=1, keepdim=True)
-
-        return sample, logprobs, entropy
-
-    def functional_forward(self, x, weights):
-        if self.num_layers == 2:
-            out = F.linear(x, weights[0], weights[1])
-            out = F.relu(out)
-            mean = F.linear(out, weights[2], weights[3])
-            var = F.relu(F.linear(out, weights[4], weights[5])) + 1e-7
-        elif self.num_layers == 3:
-            out = F.linear(x, weights[0], weights[1])
-            out = F.relu(out)
-            out = F.linear(out, weights[2], weights[3])
-            out = F.relu(out)
-            mean = F.linear(out, weights[4], weights[5])
-            var = F.relu(F.linear(out, weights[6], weights[7])) + 1e-7
-        else:
-            out = x
-            mean = F.linear(out, weights[0], weights[1])
-            var = F.relu(F.linear(out, weights[2], weights[3])) + 1e-7
 
         dist = Normal(mean, var)
+
         entropy = dist.entropy()
 
         if self.training:

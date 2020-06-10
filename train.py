@@ -10,7 +10,6 @@ import torch.nn as nn
 from torch.optim import Adam
 
 from src.agents import mode, Reinforce
-from src.ddpg import DDPG
 from src.game import Game, CircleL1, CircleL2
 
 
@@ -63,11 +62,7 @@ def train(Sender, Recver, vocab_size,
                     output_size=1,
                     mode=mode.RECVER).to(device)
 
-    if not isinstance(sender, DDPG):
-        send_opt = Adam(sender.parameters(), lr=sender.lr)
-    else:
-        pass
-
+    send_opt = Adam(sender.parameters(), lr=sender.lr)
     recv_opt = Adam(recver.parameters(), lr=recver.lr)
 
     # Saving
@@ -118,12 +113,9 @@ def train(Sender, Recver, vocab_size,
             recv_loss, recv_logs = recver.loss(recv_error, recv_logprobs, recv_entropy)
 
             # sender must be updated before recver if using retain_graph
-            if not isinstance(sender, DDPG):
-                send_opt.zero_grad()
-                send_loss.backward(retain_graph=sender.retain_graph)
-                send_opt.step()
-            else:
-                pass
+            send_opt.zero_grad()
+            send_loss.backward(retain_graph=sender.retain_graph)
+            send_opt.step()
 
             recv_opt.zero_grad()
             recv_loss.backward()
@@ -149,6 +141,7 @@ def train(Sender, Recver, vocab_size,
             for b, batch in enumerate(test_game):
                 send_target, recv_target = batch
 
+                # discrete messages
                 if isinstance(sender, Reinforce):
                     # get recver's action for any given message
                     all_messages = torch.arange(vocab_size).to(device)
@@ -158,6 +151,8 @@ def train(Sender, Recver, vocab_size,
                     dist = sender.forward_dist(send_target)
                     probs = dist.probs
                     epoch_send_test_entropy += dist.entropy().mean().item()
+
+                # continuous messages
                 else:
                     means, stddev, cdf, entropy = sender.forward_dist(send_target)
                     min_mean = min(means)
@@ -241,12 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('--gin_param', '-p', nargs='+')
     args = parser.parse_args()
 
-    # gin.config.register_finalize_hook(
-        # lambda config: config[('', '__main__.train')].update({'device': torch.device(config[('', '__main__.train')]['device'])}))
     gin.parse_config_files_and_bindings(args.gin_file, args.gin_param)
 
     print(gin.operative_config_str())
     train()
-
-    # gin.clear_config()
-    # gin.config._REGISTRY._selector_map.pop('__main__.train')

@@ -55,7 +55,7 @@ If you don't care about using `orion`'s cli to check the best run, you can run t
 
 ## Reproducing Graphs
 
-### Best Results (Figure 3b,c)
+### Best Results (Figure 3b,c, 7, 8)
 To reproduce the graphs for the best hyperparameters of any particular experiment, you need to run 5 random seeds (using `src/orion_runs.py`) with the best hyperparameters found for that setup and then plot the results with the jupyter notebook `notebooks/Best Results Plot.ipynb`
 
 E.g if you wanted to reproduce the run for the game with discrete messages (`cat-deter`) and using a bias of `90` degrees (`bias9`) saving to some `$SAVEDIR`
@@ -88,7 +88,7 @@ src/orion_runs.py  --config ./configs/cat-deter-bias3.gin --savedir ./cat-deter-
 
 Next, in `Best Results Plot.ipynb` you can run `plot_hyperparam_results("./cat-deter-results/")` which will plot the best hyperparameters for each run as well as the graph of best result per bias
 
-### All Hyperparameter Run (Figure 4)
+### All Hyperparameter Run (Figure 4, 9)
 
 This plots the sender vs receiver error for all hyperparameter searches so first you need to run 100 hyperparameter searches for the given hyperparameter search space.
 E.g. if you wanted to get all 100 hyperparameter runs (`--max-trials 100`) for discrete messages (`configs/cat-deter-search.gin`) with bias 90 degrees (`Game.bias=9`) and the directory you're saving all runs in is `results/`
@@ -101,6 +101,9 @@ orion --debug hunt -n cat-deter-bias9 \
       --config configs/cat-deter-search.gin \
       --gin_param Game.bias=9
 ```
+
+For an example slurm script see `scripts/hyperparam_search.sh`
+
 
 To recreate the continuous messages vs discrete messages plots you need to run this for all biases `0,3,6,9,12,15` and for both configs `cat-deter-search.gin` and `gauss-deter-search.gin`.
 If you save your results in folders with template names (e.g. `cat-deter-bias$BIAS`) then you can use the notebook `Hyperparam Search Plots.ipynb` to create the Figure 4 plot.
