@@ -6,15 +6,16 @@ Game.bias = 6
 
 # Parameters for Deterministic:
 # ==============================================================================
-Deterministic.hidden_size = 46
-Deterministic.lr = 0.004363394757003611
+Deterministic.hidden_size = 48
+Deterministic.lr = 0.00182414504421725
 Deterministic.num_layers = 3
 
 # Parameters for Gaussian:
 # ==============================================================================
-Gaussian.hidden_size = 40
-Gaussian.lr = 0.0020712984575880574
+Gaussian.hidden_size = 59
+Gaussian.lr = 0.006974070548439735
 Gaussian.num_layers = 3
+Gaussian.ent_reg = 0.0014880640473475283
 
 # Parameters for train:
 # ==============================================================================

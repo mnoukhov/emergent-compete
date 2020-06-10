@@ -145,7 +145,7 @@ class Reinforce(Policy):
 @gin.configurable
 class Gaussian(Policy):
     def __init__(self, input_size, output_size, hidden_size,
-                 lr, ent_reg, dim=1, num_layers=3, min_var=1e-7, **kwargs):
+                 lr, ent_reg, dim=1, num_layers=3, min_var=1e-2, **kwargs):
         super().__init__(**kwargs)
         self.num_layers = num_layers
         if self.num_layers == 2:
