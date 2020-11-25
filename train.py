@@ -32,7 +32,7 @@ def train(Sender, Recver, vocab_size,
           num_epochs, num_batches, batch_size,
           savedir=None, loaddir=None,
           random_seed=None, Loss=None, device='cpu',
-          last_epochs_metric=10):
+          last_epochs_metric=10, grounded=None):
     if random_seed is not None:
         random.seed(random_seed)
         torch.manual_seed(random_seed)
