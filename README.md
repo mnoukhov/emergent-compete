@@ -55,7 +55,7 @@ If you don't care about using `orion`'s cli to check the best run, you can run t
 
 ## Reproducing Graphs
 
-### Best Results (Figure 3b,c, 7, 8)
+### Best Results (Figure 2, 3, 9)
 To reproduce the graphs for the best hyperparameters of any particular experiment, you need to run 5 random seeds (using `src/orion_runs.py`) with the best hyperparameters found for that setup and then plot the results with the jupyter notebook `notebooks/Best Results Plot.ipynb`
 
 E.g if you wanted to reproduce the run for the game with discrete messages (`cat-deter`) and using a bias of `90` degrees (`bias9`) saving to some `$SAVEDIR`
@@ -76,7 +76,7 @@ python gen_results.py generate --experiment-name cat-deter --results_dir logdir 
 
 This will give you a `results.csv` with the best value per run and corresponding ID of the run as well as copying over the folders with the best runs. Then you can use `~/emergent-compete/results/cat-deter` as the `resultspath` in `Best Results Plot.ipynb`
 
-### Best Results Per Bias (Figure 2,3a)
+### Best Results Per Bias (Figure 2a, 3a, 9a)
 
 To reproduce the graph plotting the best result per bias, you need to run the five seeds for each bias and then save them in folders with the bias specified as `bias$BIAS`.
 E.g if you wanted to reproduce the results for discrete messages (`cat-deter`), then make your `$SAVEDIR` a template such as `./cat-deter-results/cat-deter-bias$BIAS`
@@ -88,7 +88,7 @@ src/orion_runs.py  --config ./configs/cat-deter-bias3.gin --savedir ./cat-deter-
 
 Next, in `Best Results Plot.ipynb` you can run `plot_hyperparam_results("./cat-deter-results/")` which will plot the best hyperparameters for each run as well as the graph of best result per bias
 
-### All Hyperparameter Run (Figure 4, 9)
+### All Hyperparameter Run (Figure 4, 10)
 
 This plots the sender vs receiver error for all hyperparameter searches so first you need to run 100 hyperparameter searches for the given hyperparameter search space.
 E.g. if you wanted to get all 100 hyperparameter runs (`--max-trials 100`) for discrete messages (`configs/cat-deter-search.gin`) with bias 90 degrees (`Game.bias=9`) and the directory you're saving all runs in is `results/`
