@@ -1,4 +1,17 @@
-# Emergent Communication under Competition
+# Emergent Communication under Competition (AAMAS 2021)
+
+Code for [Emergent Communication under Competition (AAMAS 2021)](https://arxiv.org/abs/2101.10276) experiments with the biased sender-receiver game. For experiments with the negotiation game see the other repo [here](https://github.com/mnoukhov/ecn)
+
+
+To cite in bibtex, please use 
+```
+@inproceedings{Noukhovitch2021ECCompete,
+  title={Emergent Communication under Competition},
+  author={Michael Noukhovitch and Travis LaCroix and Angeliki Lazaridou and Aaron Courville},
+  booktitle={AAMAS},
+  year={2021}
+}
+```
 
 ## Setup
 ### Repo
