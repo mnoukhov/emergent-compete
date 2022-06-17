@@ -79,7 +79,6 @@ def train(Sender, Recver, vocab_size,
 
     # Loading
     if loaddir is not None:
-        loaddir = os.path.join('results', loaddir)
         if os.path.exists(f'{loaddir}/models.save'):
             model_save = torch.load(f'{loaddir}/models.save')
             sender.load_state_dict(model_save['sender'])

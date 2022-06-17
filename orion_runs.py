@@ -13,6 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', '--gin_file', nargs='+')
     parser.add_argument('--gin_param', '-p', nargs='+')
     parser.add_argument('--savedir')
+    parser.add_argument('--loaddir')
     parser.add_argument('--aggregate_seeds', choices=['mean', 'min'], default='mean')
     args = parser.parse_args()
 
@@ -33,7 +34,8 @@ if __name__ == '__main__':
             seed_savedir = None
 
         best_error = train(savedir=seed_savedir,
-                           random_seed=random_seed)
+                           random_seed=random_seed,
+                           loaddir=args.loaddir)
         errors.append(best_error)
 
     if args.aggregate_seeds == 'mean':

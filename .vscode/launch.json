@@ -1,0 +1,29 @@
+{
+    "configurations": [
+        {
+            "name": "best-result-bias0",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/orion_runs.py",
+            "console": "integratedTerminal",
+            "cwd":"${workspaceFolder}",
+            "args":[
+                "--config", "configs/cat-deter-bias0.gin",
+                "--savedir","results/best-cat-deter/cat-deter-bias0/",
+            ],
+        },
+        {
+            "name": "bias3",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train.py",
+            "console": "integratedTerminal",
+            "cwd":"${workspaceFolder}",
+            "args":[
+                "--gin_file", "configs/cat-deter-drift-bias3.gin",
+                "--gin_param", "train.savedir = results/cat-deter-drift-bias3/",
+                "--gin_param", "train.loaddir = 'results/best-cat-deter/cat-deter-bias0/0/'",
+            ],
+        },
+    ]
+}

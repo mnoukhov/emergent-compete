@@ -1,0 +1,15 @@
+include 'configs/cat-deter.gin'
+
+train.vocab_size = 128
+train.Sender = @Reinforce
+train.Recver = @Deterministic
+train.Loss = @CircleL1
+
+Reinforce.lr = reinforce-lr~loguniform(1e-4, 1e-2)
+Reinforce.hidden_size = 38
+Reinforce.ent_reg = reinforce-ent-reg~loguniform(1e-4, 1)
+Reinforce.num_layers = 2
+
+Deterministic.lr = deterministic-lr~loguniform(1e-4, 1e-2)
+Deterministic.hidden_size = 56
+Deterministic.num_layers = 2
