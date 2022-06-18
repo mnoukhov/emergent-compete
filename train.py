@@ -8,9 +8,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import Adam
+from torch.distributions import Categorical
+from torch.distributions.kl import kl_divergence
 
 from src.agents import mode, Reinforce
-from src.game import Game, CircleL1, CircleL2
+from src.game import Game, CircleL1, CircleL2, JSD
 
 
 def _add_dicts(a, b):
@@ -32,7 +34,7 @@ def train(Sender, Recver, vocab_size,
           num_epochs, num_batches, batch_size,
           savedir=None, loaddir=None,
           random_seed=None, Loss=None, device='cpu',
-          last_epochs_metric=10, grounded=None):
+          last_epochs_metric=10, grounded=None, measure_drift=False):
     if random_seed is not None:
         random.seed(random_seed)
         torch.manual_seed(random_seed)
@@ -89,9 +91,29 @@ def train(Sender, Recver, vocab_size,
     l1_loss_fn = CircleL1(game.num_points)
     l2_loss_fn = CircleL2(game.num_points)
 
+    # Original Dist to measure drift
+    original_dists = []
+    previous_dists = []
+    if measure_drift:
+        with torch.no_grad():
+            for b, batch in enumerate(test_game):
+                if b > 0:
+                    raise Exception('expected only one batch of test examples')
+                send_target, recv_target = batch
+
+                # discrete messages
+                if isinstance(sender, Reinforce):
+                    # get sender's distribution of messages for the inputs
+                    sender_dist = sender.forward_dist(send_target)
+                    original_dists.append(sender_dist)
+                    previous_dists.append(sender_dist)
+                else:
+                    raise NotImplementedError('Gaussian drift not implemented')
+
     for epoch in range(num_epochs):
         epoch_send_logs = {}
         epoch_recv_logs = {}
+
 
         # Training
         sender.train()
@@ -132,6 +154,9 @@ def train(Sender, Recver, vocab_size,
         epoch_send_test_l2_error = 0
         epoch_recv_test_l2_error = 0
         epoch_send_test_entropy = 0
+        epoch_send_og_drift_error = 0
+        epoch_send_prev_drift_error = 0
+
         with torch.no_grad():
             for b, batch in enumerate(test_game):
                 send_target, recv_target = batch
@@ -146,6 +171,19 @@ def train(Sender, Recver, vocab_size,
                     dist = sender.forward_dist(send_target)
                     probs = dist.probs
                     epoch_send_test_entropy += dist.entropy().mean().item()
+
+                        
+                    if measure_drift:
+                        # jsd_loss = JSD()
+                        def jsd_loss(p_dist, q_dist):
+                            m_dist = Categorical(probs=0.5*(p_dist.probs+q_dist.probs) + 1e-8)
+                            return 0.5 * (kl_divergence(p_dist, m_dist) + kl_divergence(q_dist, m_dist))
+
+                        epoch_send_og_drift_error += jsd_loss(original_dists[b], dist).mean().item()
+                        epoch_send_prev_drift_error += jsd_loss(previous_dists[b], dist).mean().item()
+
+                        previous_dists[b] = dist
+
 
                 # continuous messages
                 else:
@@ -199,7 +237,15 @@ def train(Sender, Recver, vocab_size,
         print(f'ERROR {epoch_send_logs["error"]:2.2f} {epoch_recv_logs["error"]:2.2f}')
         print(f'LOSS  {epoch_send_logs["loss"]:2.2f} {epoch_recv_logs["loss"]:2.2f}')
         print(f'TEST  {epoch_send_logs["test_error"]:2.2f} {epoch_recv_logs["test_error"]:2.2f}')
-        print(f'L1    {epoch_send_logs["test_l1_error"]:2.2f} {epoch_recv_logs["test_l1_error"]:2.2f}\n')
+        print(f'L1    {epoch_send_logs["test_l1_error"]:2.2f} {epoch_recv_logs["test_l1_error"]:2.2f}')
+        
+        if measure_drift:
+            epoch_send_logs['test_og_drift'] = epoch_send_og_drift_error / test_game.num_batches
+            epoch_send_logs['test_prev_drift'] = epoch_send_prev_drift_error / test_game.num_batches
+            print(f'DRIFT {epoch_send_logs["test_og_drift"]:2.2f} {epoch_send_logs["test_prev_drift"]:2.2f}')
+        
+        print('\n')
+
 
         test_l1_errors.append(epoch_send_logs['test_l1_error'] + epoch_recv_logs['test_l1_error'])
 

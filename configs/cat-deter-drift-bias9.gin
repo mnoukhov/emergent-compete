@@ -6,14 +6,14 @@ Game.bias = 9
 
 # Parameters for Deterministic:
 # ==============================================================================
-Deterministic.hidden_size = 16
+Deterministic.hidden_size = 56
 Deterministic.lr = 0.00024824146371639494
 Deterministic.num_layers = 2
 
 # Parameters for Reinforce:
 # ==============================================================================
 Reinforce.ent_reg = 0.0045201129047102405
-Reinforce.hidden_size = 25
+Reinforce.hidden_size = 38
 Reinforce.lr = 0.0005788263933513795
 Reinforce.num_layers = 2
 
@@ -22,3 +22,4 @@ Reinforce.num_layers = 2
 train.Recver = @Deterministic
 train.Sender = @Reinforce
 train.vocab_size = 128
+train.measure_drift = True

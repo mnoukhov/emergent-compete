@@ -6,10 +6,12 @@
             "request": "launch",
             "program": "${workspaceFolder}/orion_runs.py",
             "console": "integratedTerminal",
-            "cwd":"${workspaceFolder}",
-            "args":[
-                "--config", "configs/cat-deter-bias0.gin",
-                "--savedir","results/best-cat-deter/cat-deter-bias0/",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--config",
+                "configs/cat-deter-bias0.gin",
+                "--savedir",
+                "results/best-cat-deter/cat-deter-bias0/",
             ],
         },
         {
@@ -18,12 +20,65 @@
             "request": "launch",
             "program": "${workspaceFolder}/train.py",
             "console": "integratedTerminal",
-            "cwd":"${workspaceFolder}",
-            "args":[
-                "--gin_file", "configs/cat-deter-drift-bias3.gin",
-                "--gin_param", "train.savedir = results/cat-deter-drift-bias3/",
-                "--gin_param", "train.loaddir = 'results/best-cat-deter/cat-deter-bias0/0/'",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--gin_file",
+                "configs/cat-deter-drift-bias3.gin",
+                "--gin_param",
+                "train.savedir = 'results/cat-deter-drift-bias3/'",
+                "train.loaddir = 'results/best-cat-deter/cat-deter-bias0/0/'",
             ],
+        },
+        {
+            "name": "bias9",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--gin_file",
+                "configs/cat-deter-drift-bias9.gin",
+                "--gin_param",
+                "train.savedir = 'results/cat-deter-drift-bias9/'",
+                "train.loaddir = 'results/best-cat-deter/cat-deter-bias0/0/'",
+            ],
+        },
+        {
+            "name": "test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "test",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python"
+            ]
+        },
+        {
+            "name": "test_toolkit",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "test",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python",
+                "-j",
+                "toolkit"
+            ]
         },
     ]
 }

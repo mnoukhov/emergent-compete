@@ -22,3 +22,4 @@ Reinforce.num_layers = 2
 train.Recver = @Deterministic
 train.Sender = @Reinforce
 train.vocab_size = 128
+train.measure_drift = True
