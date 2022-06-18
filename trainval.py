@@ -20,6 +20,9 @@ def trainval(exp_dict, savedir, args):
     args: arguments passed through the command line
     """
     exp_args = argparse.Namespace(**exp_dict)
+    if gin.config_is_locked():
+        print("overriding prev gin config")
+        gin.clear_config()
     gin.parse_config_files_and_bindings(exp_args.gin_config, exp_args.gin_param)
     print(gin.operative_config_str())
 

@@ -114,6 +114,7 @@ venv.bak/
 job_error.txt
 job_output.txt
 graphics/
+hyperparam_results/
 
 # env
 env/

@@ -62,6 +62,23 @@
             ]
         },
         {
+            "name": "test_hyperparam",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "test_hyperparam",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python"
+            ]
+        },
+        {
             "name": "test_toolkit",
             "type": "python",
             "request": "launch",

@@ -1,7 +1,27 @@
 from collections import ChainMap
 from datetime import datetime
 
+from scipy.stats import loguniform
+
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+HYPERPARAM_GROUPS = {
+    f"hyperparam_bias{bias}": [
+        {
+            "gin_config": ["configs/cat-deter-drift-search.gin"],
+            "gin_param": [
+                f"Game.bias = {bias}",
+                f"Reinforce.lr = {loguniform.rvs(1e-4, 1e-2)}",
+                f"Deterministic.lr = {loguniform.rvs(1e-4, 1e-2)}",
+                f"Reinforce.ent_reg = {loguniform.rvs(1e-4, 1)}",
+            ],
+            "savedir": f"hyperparam_results/cat-deter-drift-search-bias{bias}/cat-deter-drift-bias{bias}-{i}-{timestamp}",
+            "loaddir": "results/cat-deter-bias0/",
+        }
+        for i in range(100)
+    ]
+    for bias in [0, 3, 6, 9, 12, 15, 18]
+}
 
 TEST_GROUPS = {
     "test": [
@@ -11,20 +31,8 @@ TEST_GROUPS = {
             "savedir": "results/test/",
             "loaddir": "results/cat-deter-bias0/",
         }
-    ]
-}
-
-HYPERPARAM_GROUPS = {
-    f"hyperparam{bias}": [
-        {
-            "gin_config": ["configs/cat-deter-drift-search.gin"],
-            "gin_param": [f"Game.bias = {bias}"],
-            "savedir": f"results/cat-deter-drift-search-bias{bias}-{timestamp}/cat-deter-drift-bias{bias}-{i}",
-            "loaddir": "results/cat-deter-bias0/",
-        }
-        for i in range(1)
-    ]
-    for bias in [0, 3, 6, 9, 12, 15, 18]
+    ],
+    "test_hyperparam": HYPERPARAM_GROUPS["hyperparam_bias3"][:2],
 }
 
 EXP_GROUPS = ChainMap(HYPERPARAM_GROUPS, TEST_GROUPS)
