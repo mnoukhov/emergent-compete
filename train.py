@@ -89,6 +89,7 @@ def train(
             model_save = torch.load(f"{loaddir}/models.save")
             sender.load_state_dict(model_save["sender"])
             recver.load_state_dict(model_save["recver"])
+            print(f'loaded models from {loaddir}')
 
     test_l1_errors = []
     test_l2_errors = []

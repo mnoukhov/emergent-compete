@@ -9,6 +9,8 @@ from scipy.stats import loguniform
 # fix the different random points used
 np.random.seed(0)
 
+BASE_SAVEDIR = '/mnt/public/results/emergent-compete'
+
 HYPERPARAM_GROUPS = {
     f"hyperparam_bias{bias}": [
         {
@@ -19,8 +21,8 @@ HYPERPARAM_GROUPS = {
                 f"Deterministic.lr = {loguniform.rvs(1e-4, 1e-2)}",
                 f"Reinforce.ent_reg = {loguniform.rvs(1e-4, 1)}",
             ],
-            "savedir": f"/mnt/public/results/emergent-compete/cat-deter-drift-search-bias{bias}-v1/cat-deter-drift-bias{bias}-{i}",
-            "loaddir": "results/cat-deter-bias0/",
+            "savedir": f"/mnt/public/results/emergent-compete/cat-deter-drift-search-bias{bias}/cat-deter-drift-bias{bias}-{i}",
+            "loaddir": "/mnt/public/results/emergent-compete/cat-deter-bias0",
         }
         for i in range(100)
     ]
@@ -41,10 +43,18 @@ TEST_GROUPS = {
             "gin_config": ["configs/cat-deter-drift-bias3.gin"],
             "gin_param": [""],
             "savedir": "/mnt/public/results/emergent-compete/test",
-            "loaddir": "results/cat-deter-bias0/",
+            "loaddir": "/mnt/public/results/emergent-compete/cat-deter-bias0",
         }
     ],
     "test_hyperparam": HYPERPARAM_GROUPS["hyperparam_bias3"][:2],
+    "test_loading": [
+        {
+            "gin_config": ["configs/cat-deter-bias0.gin"],
+            "gin_param": ["train.measure_drift = True"],
+            "savedir": "/mnt/public/results/emergent-compete/test_loading",
+            "loaddir": "/mnt/public/results/emergent-compete/cat-deter-bias0",
+        }
+    ],
 }
 
 EXP_GROUPS = ChainMap(HYPERPARAM_GROUPS, TEST_GROUPS, ALL_HPS)

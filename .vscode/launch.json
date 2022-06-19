@@ -62,6 +62,25 @@
             ]
         },
         {
+            "name": "test_loading",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "test_loading",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python",
+                "-j",
+                "toolkit"
+            ]
+        },
+        {
             "name": "test_hyperparam",
             "type": "python",
             "request": "launch",
@@ -135,6 +154,25 @@
                 "/mnt/home/miniconda/bin/python",
                 "-j",
                 "toolkit"
+            ]
+        },
+        {
+            "name": "gen_results",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/gen_results.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "generate",
+                "--exp-name",
+                "cat-deter-drift-search",
+                "--results-dir",
+                "/mnt/public/results/emergent-compete/",
+                "--output-dir",
+                "results/best-cat-deter-drift",
+                "--verbose"
             ]
         },
     ]
