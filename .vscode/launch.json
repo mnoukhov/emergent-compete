@@ -100,7 +100,7 @@
             ]
         },
         {
-            "name": "hyperparam_bias6",
+            "name": "hyperparam_bias3",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/trainval.py",
@@ -109,7 +109,26 @@
             "justMyCode": true,
             "args": [
                 "-e",
-                "hyperparam_bias6",
+                "hyperparam_bias3",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python",
+                "-j",
+                "toolkit"
+            ]
+        },
+        {
+            "name": "all_hyperparams",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "all_hyperparams",
                 "-sb",
                 "/mnt/public/results/example2",
                 "--python_binary",
