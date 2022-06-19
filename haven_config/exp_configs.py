@@ -15,7 +15,7 @@ HYPERPARAM_GROUPS = {
                 f"Deterministic.lr = {loguniform.rvs(1e-4, 1e-2)}",
                 f"Reinforce.ent_reg = {loguniform.rvs(1e-4, 1)}",
             ],
-            "savedir": f"hyperparam_results/cat-deter-drift-search-bias{bias}/cat-deter-drift-bias{bias}-{i}-{timestamp}",
+            "savedir": f"/mnt/public/results/emergent-compete/cat-deter-drift-search-bias{bias}/cat-deter-drift-bias{bias}-{i}-{timestamp}",
             "loaddir": "results/cat-deter-bias0/",
         }
         for i in range(100)
@@ -28,7 +28,7 @@ TEST_GROUPS = {
         {
             "gin_config": ["configs/cat-deter-drift-bias3.gin"],
             "gin_param": [""],
-            "savedir": "results/test/",
+            "savedir": "/mnt/public/results/emergent-compete/test",
             "loaddir": "results/cat-deter-bias0/",
         }
     ],

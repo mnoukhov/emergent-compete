@@ -75,7 +75,9 @@
                 "-sb",
                 "/mnt/public/results/example2",
                 "--python_binary",
-                "/mnt/home/miniconda/bin/python"
+                "/mnt/home/miniconda/bin/python",
+                "-j",
+                "toolkit"
             ]
         },
         {
@@ -89,6 +91,25 @@
             "args": [
                 "-e",
                 "test",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python",
+                "-j",
+                "toolkit"
+            ]
+        },
+        {
+            "name": "hyperparam_bias6",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "hyperparam_bias6",
                 "-sb",
                 "/mnt/public/results/example2",
                 "--python_binary",

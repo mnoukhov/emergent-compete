@@ -91,4 +91,5 @@ if __name__ == "__main__":
         results_fname="haven_config/results.ipynb",
         python_binary_path=args.python_binary,
         args=args,
+        use_threads=True,
     )
