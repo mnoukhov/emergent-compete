@@ -203,11 +203,11 @@
             "args": [
                 "generate",
                 "--exp-name",
-                "cat-deter-drift-search",
+                "cat-deter-drift-search9",
                 "--results-dir",
                 "/mnt/public/results/emergent-compete/",
                 "--output-dir",
-                "results/best-cat-deter-drift",
+                "results/best-cat-deter-drift9",
                 "--verbose"
             ]
         },
