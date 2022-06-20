@@ -38,7 +38,7 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "--gin_file",
-                "configs/cat-deter-drift-bias9.gin",
+                "configs/cat-deter-bias9.gin",
                 "--gin_param",
                 "train.savedir = 'results/cat-deter-drift-bias9/'",
                 "train.loaddir = 'results/best-cat-deter/cat-deter-bias0/0/'",
@@ -78,6 +78,23 @@
                 "/mnt/home/miniconda/bin/python",
                 "-j",
                 "toolkit"
+            ]
+        },
+        {
+            "name": "test_load9",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "test_load9",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python",
             ]
         },
         {
@@ -148,6 +165,25 @@
             "args": [
                 "-e",
                 "all_hyperparams",
+                "-sb",
+                "/mnt/public/results/example2",
+                "--python_binary",
+                "/mnt/home/miniconda/bin/python",
+                "-j",
+                "toolkit"
+            ]
+        },
+        {
+            "name": "all_hyperparams_load9",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainval.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": [
+                "-e",
+                "all_hyperparams_load9",
                 "-sb",
                 "/mnt/public/results/example2",
                 "--python_binary",

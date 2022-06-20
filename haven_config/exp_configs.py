@@ -37,13 +37,28 @@ ALL_HPS = {
     ]
 }
 
+ALL_HPS_LOAD9 = {
+    # update config and return dict
+    "all_hyperparams_load9": [
+        {
+            **config, 
+            **{
+                'gin_config': ['configs/cat-deter-drift-search9.gin'],
+                'savedir': config['savedir'].replace('search', 'search9'),
+                'loaddir': "/mnt/public/results/emergent-compete/cat-deter-bias9/4/",
+            }
+        }
+        for config in ALL_HPS['all_hyperparams']
+    ]
+}
+
 TEST_GROUPS = {
     "test": [
         {
-            "gin_config": ["configs/cat-deter-drift-bias3.gin"],
+            "gin_config": ["configs/cat-deter-bias9.gin"],
             "gin_param": [""],
-            "savedir": "/mnt/public/results/emergent-compete/test",
-            "loaddir": "/mnt/public/results/emergent-compete/cat-deter-bias0",
+            "savedir": "/mnt/public/results/emergent-compete/cat-deter-bias9",
+            "loaddir": None,
         }
     ],
     "test_hyperparam": HYPERPARAM_GROUPS["hyperparam_bias3"][:2],
@@ -55,6 +70,7 @@ TEST_GROUPS = {
             "loaddir": "/mnt/public/results/emergent-compete/cat-deter-bias0",
         }
     ],
+    "test_load9": ALL_HPS_LOAD9["all_hyperparams_load9"][:2]
 }
 
-EXP_GROUPS = ChainMap(HYPERPARAM_GROUPS, TEST_GROUPS, ALL_HPS)
+EXP_GROUPS = ChainMap(HYPERPARAM_GROUPS, TEST_GROUPS, ALL_HPS, ALL_HPS_LOAD9)
