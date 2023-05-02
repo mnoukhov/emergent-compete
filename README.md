@@ -43,7 +43,7 @@ and select `pickleddb` and a location to save it to as your `host` e.g. `~/orion
 ### Training
 Train the models with `src/train.py`. We use `gin-config` so all configurations can be easily viewed in `configs/`. You can override any params of the configs when running by adding them in the `--gin_param` arg
 
-`python src/train.py --gin_file /path/to/your/config --gin_param overriding_param=value`
+`python train.py --gin_file /path/to/your/config --gin_param overriding_param=value`
 
 The best hyperparameters for any given experiment are given in the `.gin` config. See the `README.md` in `configs/` for more info.
 
